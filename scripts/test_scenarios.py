@@ -6,7 +6,7 @@ Scenario 2: Full RCA   — new incident goes through Intake→RCA→Remediation�
 Scenario 3: Monitoring — background loop detects anomaly, auto-creates ticket
 
 Run:
-    python test_scenarios.py
+    python scripts/test_scenarios.py
 
 Requirements: ChromaDB seeded (python -m synapse.rag.ingest), DB running (docker compose up -d db)
 """

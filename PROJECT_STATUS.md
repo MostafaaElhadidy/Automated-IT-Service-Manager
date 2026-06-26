@@ -58,8 +58,8 @@ diagnose, remediate (with human approval), and learn from resolutions.
 | 27 | Streamlit dashboard | ✅ Done | | `ui/dashboard.py` |
 | 28 | PowerPoint presentation (14 slides) | ✅ Done | | `make_pptx.py` → Desktop |
 | 29 | PDF reference document (29 pages) | ✅ Done | | `make_pdf.py` → Desktop |
-| 30 | Test scenarios script (3 traces) | ✅ Done | | `test_scenarios.py` |
-| 31 | Reset monitoring tickets script | ✅ Done | | `reset_monitoring_tickets.py` |
+| 30 | Test scenarios script (3 traces) | ✅ Done | | `scripts/test_scenarios.py` |
+| 31 | Reset monitoring tickets script | ✅ Done | | `scripts/reset_monitoring_tickets.py` |
 | 32 | Langfuse tracing | ⬜ Optional | | keys in .env, leave blank to disable |
 | 33 | Evaluation harness | ⬜ Optional | | `src/synapse/eval/harness.py` |
 | 34 | **Auth (JWT login/register)** | ✅ Done | | `api/security.py`, `api/routers/auth.py` |
@@ -122,7 +122,7 @@ Streamlit Dashboard (port 8501)
 | `src/synapse/sim/scenarios.yaml` | 13 monitoring anomaly scenarios |
 | `ui/chat_app.py` | Chainlit chat client |
 | `ui/dashboard.py` | Streamlit ops dashboard |
-| `reset_monitoring_tickets.py` | Utility: close all open [AUTO] tickets |
+| `scripts/reset_monitoring_tickets.py` | Utility: close all open [AUTO] tickets |
 
 ---
 
@@ -153,7 +153,7 @@ chainlit run ui/chat_app.py --port 8001
 streamlit run ui/dashboard.py --server.port 8501
 
 # Reset monitoring tickets for a clean demo
-python reset_monitoring_tickets.py
+python scripts/reset_monitoring_tickets.py
 ```
 
 ### Environment Variables (`.env`)
