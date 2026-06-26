@@ -1,0 +1,18 @@
+id: clear_cache
+title: Clear application cache
+description: Flushes the Redis/memory cache to resolve stampede or stale-data issues
+params:
+  host: str
+target_metric: cache_hit_rate
+sim_effect:
+  set:
+    metric: cache_hit_rate
+    host: "{host}"
+    value: 0.85
+steps:
+  - description: "Connect to Redis and flush cache"
+    command: "redis-cli -h {host} FLUSHDB"
+  - description: "Warm up critical cache keys"
+    command: "curl -s http://{host}/api/cache/warm"
+  - description: "Verify cache is responding"
+    command: "redis-cli -h {host} PING"

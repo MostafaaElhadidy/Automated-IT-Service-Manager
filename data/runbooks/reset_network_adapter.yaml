@@ -1,0 +1,19 @@
+id: reset_network_adapter
+title: Reset network adapter
+description: Disables then re-enables the active Wi-Fi or Ethernet adapter to restore connectivity after a hang or IP lease failure
+params:
+  adapter: str
+target_metric: connectivity
+steps:
+  - description: "Detect active network adapter"
+    command: "Get-NetAdapter | Where-Object {$_.Status -eq 'Up'} | Select-Object Name, MacAddress"
+  - description: "Disable network adapter"
+    command: "Disable-NetAdapter -Name '{adapter}' -Confirm:$false"
+  - description: "Wait 3 seconds"
+    command: "Start-Sleep 3"
+  - description: "Re-enable network adapter"
+    command: "Enable-NetAdapter -Name '{adapter}' -Confirm:$false"
+  - description: "Renew DHCP lease"
+    command: "ipconfig /renew"
+  - description: "Verify connectivity"
+    command: "Test-NetConnection google.com -Port 80"

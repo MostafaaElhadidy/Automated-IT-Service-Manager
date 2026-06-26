@@ -1,0 +1,21 @@
+id: scale_workers
+title: Scale application workers
+description: Increases the number of worker processes to handle higher load
+params:
+  host: str
+  count: int
+target_metric: cpu_usage
+sim_effect:
+  set:
+    metric: cpu_usage
+    host: "{host}"
+    value: 0.35
+steps:
+  - description: "Check current worker count"
+    command: "systemctl status gunicorn | grep workers"
+  - description: "Update worker configuration"
+    command: "sed -i 's/workers=.*/workers={count}/' /etc/gunicorn.conf"
+  - description: "Reload service without downtime"
+    command: "systemctl reload gunicorn"
+  - description: "Verify new worker count"
+    command: "systemctl status gunicorn | grep workers"

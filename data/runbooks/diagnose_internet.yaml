@@ -1,0 +1,17 @@
+id: diagnose_internet
+title: Diagnose internet connectivity and speed
+description: Runs TCP latency, DNS resolution, HTTP connectivity and adapter checks to find what is causing slowness or failure
+params:
+  host: str
+target_metric: latency_ms
+steps:
+  - description: "Measure TCP latency to Google DNS (8.8.8.8:53)"
+    command: "Test-NetConnection -ComputerName 8.8.8.8 -Port 53"
+  - description: "Test DNS resolution"
+    command: "nslookup google.com"
+  - description: "Test HTTP connectivity"
+    command: "curl -s -o /dev/null -w '%{http_code} in %{time_total}s' http://www.google.com"
+  - description: "Check active network adapters and traffic stats"
+    command: "Get-NetAdapter | Where-Object {$_.Status -eq 'Up'} | Select-Object Name, LinkSpeed, Status"
+  - description: "List top active TCP connections"
+    command: "netstat -ano -p tcp | findstr ESTABLISHED"

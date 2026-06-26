@@ -1,0 +1,15 @@
+id: flush_dns
+title: Flush DNS cache and restart DNS client
+description: Clears the local DNS resolver cache and restarts the DNS Client service to fix name resolution failures
+params:
+  host: str
+target_metric: dns_resolution
+steps:
+  - description: "Flush DNS resolver cache"
+    command: "ipconfig /flushdns"
+  - description: "Stop DNS Client service"
+    command: "net stop dnscache"
+  - description: "Start DNS Client service"
+    command: "net start dnscache"
+  - description: "Verify DNS resolution is working"
+    command: "nslookup google.com"

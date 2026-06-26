@@ -1,0 +1,17 @@
+id: reconnect_vpn
+title: Reconnect VPN
+description: Disconnects and reconnects the Windows VPN connection to fix timeouts, authentication failures, or dropped tunnels
+params:
+  vpn_name: str
+target_metric: vpn_connectivity
+steps:
+  - description: "List all configured VPN connections and their status"
+    command: "Get-VpnConnection | Select-Object Name, ConnectionStatus, ServerAddress"
+  - description: "Disconnect VPN if currently connected"
+    command: "rasdial '{vpn_name}' /disconnect"
+  - description: "Wait 2 seconds for clean disconnect"
+    command: "Start-Sleep 2"
+  - description: "Reconnect VPN"
+    command: "rasdial '{vpn_name}'"
+  - description: "Verify VPN connection established"
+    command: "Get-VpnConnection | Where-Object {$_.ConnectionStatus -eq 'Connected'} | Select-Object Name, ServerAddress"

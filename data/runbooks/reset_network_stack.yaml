@@ -1,0 +1,17 @@
+id: reset_network_stack
+title: Reset network stack (Winsock + TCP/IP)
+description: Full reset of the Windows network stack — fixes persistent connectivity failures caused by corrupted socket catalog or TCP/IP state. Requires administrator and a system restart.
+params:
+  host: str
+target_metric: connectivity
+steps:
+  - description: "Flush DNS resolver cache"
+    command: "ipconfig /flushdns"
+  - description: "Reset Winsock catalog (fixes socket-level corruption)"
+    command: "netsh winsock reset"
+  - description: "Reset TCP/IP stack"
+    command: "netsh int ip reset"
+  - description: "Release and renew IP address"
+    command: "ipconfig /release && ipconfig /renew"
+  - description: "NOTE: A system restart is required for winsock/TCP reset to take full effect"
+    command: "echo Restart your computer to complete the network stack reset"

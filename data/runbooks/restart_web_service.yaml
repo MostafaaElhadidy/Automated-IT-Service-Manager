@@ -1,0 +1,21 @@
+id: restart_web_service
+title: Restart web service on a host
+description: Gracefully restarts the web service workers to clear connection/memory issues
+params:
+  host: str
+  service: str
+target_metric: error_rate
+sim_effect:
+  set:
+    metric: error_rate
+    host: "{host}"
+    value: 0.001
+steps:
+  - description: "Drain existing connections gracefully"
+    command: "systemctl stop {service}"
+  - description: "Clear worker state"
+    command: "rm -f /var/run/{service}/*.pid"
+  - description: "Restart service"
+    command: "systemctl start {service}"
+  - description: "Verify health"
+    command: "curl -sf http://{host}:80/health"

@@ -1,0 +1,20 @@
+id: restart_db_connection_pool
+title: Restart database connection pool
+description: Recycles all idle/stale DB connections by restarting the connection pool manager
+params:
+  host: str
+target_metric: db_connections
+sim_effect:
+  set:
+    metric: db_connections
+    host: "{host}"
+    value: 5
+steps:
+  - description: "List active connections"
+    command: "psql -h {host} -c 'SELECT count(*) FROM pg_stat_activity'"
+  - description: "Terminate idle connections"
+    command: "psql -h {host} -c \"SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE state='idle'\""
+  - description: "Reload connection pool configuration"
+    command: "systemctl reload pgbouncer"
+  - description: "Verify connection count"
+    command: "psql -h {host} -c 'SELECT count(*) FROM pg_stat_activity'"

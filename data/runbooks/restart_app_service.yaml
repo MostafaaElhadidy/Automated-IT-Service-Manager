@@ -1,0 +1,22 @@
+id: restart_app_service
+title: Restart application service
+description: Gracefully restarts an application service to recover from memory leaks or crashes
+params:
+  host: str
+target_metric: cpu_usage
+sim_effect:
+  set:
+    metric: cpu_usage
+    host: "{host}"
+    value: 0.25
+steps:
+  - description: "Check current process state"
+    command: "systemctl status app@{host}"
+  - description: "Drain in-flight requests (30s)"
+    command: "kill -USR1 $(cat /var/run/app-{host}.pid)"
+  - description: "Restart application service"
+    command: "systemctl restart app@{host}"
+  - description: "Verify service is healthy"
+    command: "curl -sf http://{host}:8080/health"
+  - description: "Confirm memory usage returned to normal"
+    command: "ps aux | grep app | awk '{print $4}'"
