@@ -67,7 +67,7 @@ async def call_llm(
             logger.warning("LLM call attempt %d/%d failed: %s", attempt + 1, max_retries + 1, exc)
             if attempt < max_retries:
                 # Try Ollama fallback on subsequent attempts
-                kwargs["model"] = "ollama/phiii3:latest"
+                kwargs["model"] = "llama3.1:8b"
                 kwargs["api_base"] = settings.ollama_base_url
                 kwargs.pop("api_key", None)
 

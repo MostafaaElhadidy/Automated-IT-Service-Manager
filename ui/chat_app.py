@@ -4,6 +4,53 @@ Does NOT import agents or touch the DB directly.
 """
 from __future__ import annotations
 import asyncio
+import asyncio.tasks as _asyncio_tasks
+
+# ── Python 3.14 + nest_asyncio 1.6.0 compatibility fix ──────────────────────
+#
+# nest_asyncio replaces asyncio.Task (C extension) with _PyTask (pure Python).
+# In Python 3.14, asyncio.current_task() delegates to the C function
+# _asyncio._get_running_task(), which is never updated by _PyTask.__step.
+# Result: current_task() always returns None inside running tasks.
+#
+# Fix A — patch asyncio.current_task to read from the Python dict that
+#          _PyTask.__step DOES update: asyncio.tasks._current_tasks.
+def _fixed_current_task(loop=None):
+    try:
+        running_loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return None
+    return _asyncio_tasks._current_tasks.get(running_loop)
+
+asyncio.current_task = _fixed_current_task
+_asyncio_tasks.current_task = _fixed_current_task
+
+# Fix B — patch sniffio to detect asyncio via get_running_loop() instead of
+#          current_task(), so detection works even before Fix A takes effect
+#          (sniffio is imported before this module in some code paths).
+import sniffio as _sniffio
+import sniffio._impl as _sniffio_impl
+
+def _fixed_current_async_library() -> str:
+    value = _sniffio_impl.thread_local.name
+    if value is not None:
+        return value
+    value = _sniffio_impl.current_async_library_cvar.get()
+    if value is not None:
+        return value
+    try:
+        asyncio.get_running_loop()
+        return "asyncio"
+    except RuntimeError:
+        pass
+    raise _sniffio_impl.AsyncLibraryNotFoundError(
+        "unknown async library, or not in async context"
+    )
+
+_sniffio_impl.current_async_library = _fixed_current_async_library
+_sniffio.current_async_library = _fixed_current_async_library
+# ─────────────────────────────────────────────────────────────────────────────
+
 import os
 import httpx
 import chainlit as cl
@@ -42,7 +89,11 @@ def auth_callback(username: str, password: str):
 
 def _token() -> str:
     """Return the backend JWT for the logged-in Chainlit user."""
-    app_user = cl.user_session.get("user")
+    # Chainlit 2.x stores the user on context.session.user, not user_session.
+    try:
+        app_user = cl.context.session.user
+    except Exception:
+        app_user = cl.user_session.get("user")
     if app_user and app_user.metadata:
         return app_user.metadata.get("token", "")
     return ""

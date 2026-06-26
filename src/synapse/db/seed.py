@@ -63,6 +63,16 @@ CIS: list[dict] = [
     {"id": "CDN-01",   "name": "CDN Edge Node",            "ci_type": "network", "criticality": 2},
     # ── Auth service ──────────────────────────────────────────────────────────
     {"id": "AUTH-01",  "name": "Auth Service",             "ci_type": "server",  "criticality": 1},
+    # ── Retail / POS Expansion ────────────────────────────────────────────────
+    {"id": "POS-01",   "name": "POS Terminal 01",          "ci_type": "server",  "criticality": 2},
+    {"id": "POS-02",   "name": "POS Terminal 02",          "ci_type": "server",  "criticality": 2},
+    {"id": "POS-03",   "name": "POS Terminal 03",          "ci_type": "server",  "criticality": 2},
+    {"id": "DB-04",    "name": "Inventory Database",       "ci_type": "db",      "criticality": 2},
+    {"id": "DB-05",    "name": "Sales Journal Database",   "ci_type": "db",      "criticality": 2},
+    {"id": "APP-03",   "name": "Inventory Sync Engine",    "ci_type": "server",  "criticality": 2},
+    {"id": "APP-04",   "name": "Loyalty Program Service",  "ci_type": "server",  "criticality": 2},
+    {"id": "REDIS-03", "name": "Product Catalog Cache",    "ci_type": "cache",   "criticality": 2},
+    {"id": "AUTH-02",  "name": "Backup Auth Service",      "ci_type": "server",  "criticality": 2},
 ]
 
 # ── Dependency graph (source depends_on target) ───────────────────────────────
@@ -104,6 +114,16 @@ RELATIONSHIPS: list[dict] = [
     {"source_id": "APP-SALES", "target_id": "CDN-01",  "rel_type": "depends_on"},
     # DB replica
     {"source_id": "DB-02",     "target_id": "DB-01",   "rel_type": "depends_on"},
+    # Retail / POS Expansion
+    {"source_id": "POS-01",    "target_id": "LB-02",   "rel_type": "depends_on"},
+    {"source_id": "POS-02",    "target_id": "LB-02",   "rel_type": "depends_on"},
+    {"source_id": "POS-03",    "target_id": "LB-02",   "rel_type": "depends_on"},
+    {"source_id": "LB-02",     "target_id": "APP-03",  "rel_type": "depends_on"},
+    {"source_id": "LB-02",     "target_id": "APP-04",  "rel_type": "depends_on"},
+    {"source_id": "APP-03",    "target_id": "DB-04",   "rel_type": "depends_on"},
+    {"source_id": "APP-03",    "target_id": "REDIS-03","rel_type": "depends_on"},
+    {"source_id": "APP-04",    "target_id": "DB-05",   "rel_type": "depends_on"},
+    {"source_id": "AUTH-02",   "target_id": "FW-01",   "rel_type": "connects_to"},
 ]
 
 # ── Historical tickets (mixed states) ─────────────────────────────────────────

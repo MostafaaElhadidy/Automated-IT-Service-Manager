@@ -46,3 +46,4 @@ langfuse>=2.50
 pytest>=8.0
 pytest-asyncio>=0.24
 anyio>=4.5
+starlette>=0.46,<1.0  # starlette 1.x uses anyio.to_thread which breaks on Windows

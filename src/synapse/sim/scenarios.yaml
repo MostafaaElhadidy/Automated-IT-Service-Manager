@@ -1,99 +1,446 @@
 # Seeded anomaly schedule (deterministic, SIM_SEED=42)
 # t_offset is seconds from monitoring loop start
-# 13 scenarios spread ~60 s apart — one new ticket per minute for the demo
+# 63 scenarios spread 60 s apart — one new ticket per minute for the demo
 scenarios:
 
-  # ── Wave 1: Web tier ─────────────────────────────────────────────────────────
-  - name: "WEB-02 worker pool exhaustion"
+  # ── Wave 1: POS / Cashier tier (50 Expanded Retail/POS Scenarios First) ───────
+  - name: "POS-01 payment processor CPU overload"
     t_offset: 30
+    ci_id: "POS-01"
+    metric: "cpu_usage"
+    anomaly_value: 0.96
+    description: "POS-01 payment processor CPU critical — checkout transactions failing"
+
+  - name: "POS-02 cashier app error spike"
+    t_offset: 90
+    ci_id: "POS-02"
+    metric: "error_rate"
+    anomaly_value: 0.60
+    description: "POS-02 cashier application error surge — sales floor terminals down"
+
+  - name: "DB-04 inventory DB connection saturation"
+    t_offset: 150
+    ci_id: "DB-04"
+    metric: "db_connections"
+    anomaly_value: 95
+    description: "DB-04 inventory database connections maxed — stock queries timing out"
+
+  - name: "REDIS-03 product catalog cache failure"
+    t_offset: 210
+    ci_id: "REDIS-03"
+    metric: "cache_hit_rate"
+    anomaly_value: 0.05
+    description: "REDIS-03 product catalog cache collapsed — every request hitting DB"
+
+  - name: "POS-03 checkout card terminal CPU spike"
+    t_offset: 270
+    ci_id: "POS-03"
+    metric: "cpu_usage"
+    anomaly_value: 0.94
+    description: "POS-03 customer card reader interface CPU at capacity — processing delays at checkouts"
+
+  - name: "LB-02 POS gateway error rate surge"
+    t_offset: 330
+    ci_id: "LB-02"
+    metric: "error_rate"
+    anomaly_value: 0.48
+    description: "LB-02 frontend gateway error spike — customers unable to load digital cart page"
+
+  - name: "AUTH-02 cashier login service CPU overload"
+    t_offset: 390
+    ci_id: "AUTH-02"
+    metric: "cpu_usage"
+    anomaly_value: 0.97
+    description: "AUTH-02 cashier authentication service CPU critical — cashiers unable to log into terminals"
+
+  - name: "DB-05 sales journal DB connection spike"
+    t_offset: 450
+    ci_id: "DB-05"
+    metric: "db_connections"
+    anomaly_value: 92
+    description: "DB-05 sales transaction journal database connection pool exhausted — receipts failing to save"
+
+  - name: "APP-03 inventory sync engine CPU surge"
+    t_offset: 510
+    ci_id: "APP-03"
+    metric: "cpu_usage"
+    anomaly_value: 0.89
+    description: "APP-03 stock synchronization engine CPU spike — inventory updates delayed across stores"
+
+  - name: "APP-04 loyalty points calculator error spike"
+    t_offset: 570
+    ci_id: "APP-04"
+    metric: "error_rate"
+    anomaly_value: 0.52
+    description: "APP-04 loyalty program calculation service error rate elevated — member discounts not applying"
+
+  - name: "REDIS-03 store inventory cache hit rate collapse"
+    t_offset: 630
+    ci_id: "REDIS-03"
+    metric: "cache_hit_rate"
+    anomaly_value: 0.12
+    description: "REDIS-03 inventory cache hit rate critical — database experiencing thundering herd queries"
+
+  - name: "POS-01 tax calculator service error surge"
+    t_offset: 690
+    ci_id: "POS-01"
+    metric: "error_rate"
+    anomaly_value: 0.35
+    description: "POS-01 tax calculation api error rate spike — incorrect checkout subtotals occurring"
+
+  - name: "POS-02 barcode parser CPU overload"
+    t_offset: 750
+    ci_id: "POS-02"
+    metric: "cpu_usage"
+    anomaly_value: 0.91
+    description: "POS-02 scanner interface parser CPU critical — barcode scans lagging on sales floor"
+
+  - name: "DB-04 checkout session database connection surge"
+    t_offset: 810
+    ci_id: "DB-04"
+    metric: "db_connections"
+    anomaly_value: 88
+    description: "DB-04 checkout session DB connections at capacity — cart transactions failing to commit"
+
+  - name: "LB-02 backoffice API gateway error rate spike"
+    t_offset: 870
+    ci_id: "LB-02"
+    metric: "error_rate"
+    anomaly_value: 0.42
+    description: "LB-02 API gateway error surge — store manager dashboards failing to load"
+
+  - name: "AUTH-02 customer SSO service error spike"
+    t_offset: 930
+    ci_id: "AUTH-02"
+    metric: "error_rate"
+    anomaly_value: 0.58
+    description: "AUTH-02 customer single sign-on error rate elevated — mobile app customers unable to log in"
+
+  - name: "APP-03 price checker application error spike"
+    t_offset: 990
+    ci_id: "APP-03"
+    metric: "error_rate"
+    anomaly_value: 0.31
+    description: "APP-03 price verification app error spike — self-service kiosk lookups failing"
+
+  - name: "APP-04 barcode generator CPU overload"
+    t_offset: 1050
+    ci_id: "APP-04"
+    metric: "cpu_usage"
+    anomaly_value: 0.93
+    description: "APP-04 digital barcode generator CPU critical — online orders failing to print pickup labels"
+
+  - name: "POS-03 payment terminal driver error spike"
+    t_offset: 1110
+    ci_id: "POS-03"
+    metric: "error_rate"
+    anomaly_value: 0.65
+    description: "POS-03 credit card terminal integration error spike — checkout lane terminals locked up"
+
+  - name: "DB-05 customer profiles database connection saturation"
+    t_offset: 1170
+    ci_id: "DB-05"
+    metric: "db_connections"
+    anomaly_value: 96
+    description: "DB-05 customer profile DB connections maxed out — loyalty account lookups timing out"
+
+  - name: "REDIS-03 cashier session cache hit rate collapse"
+    t_offset: 1230
+    ci_id: "REDIS-03"
+    metric: "cache_hit_rate"
+    anomaly_value: 0.08
+    description: "REDIS-03 cashier session cache hit rate critical — register terminals dropping cashier sessions"
+
+  - name: "POS-01 transaction receipt sync CPU overload"
+    t_offset: 1290
+    ci_id: "POS-01"
+    metric: "cpu_usage"
+    anomaly_value: 0.97
+    description: "POS-01 receipt synchronization worker CPU at capacity — sales records backlogged in queue"
+
+  - name: "POS-02 self-checkout UI error rate surge"
+    t_offset: 1350
+    ci_id: "POS-02"
+    metric: "error_rate"
+    anomaly_value: 0.40
+    description: "POS-02 self-checkout kiosks error rate spike — customer screens freezing on payment select"
+
+  - name: "DB-04 inventory audit database connections surge"
+    t_offset: 1410
+    ci_id: "DB-04"
+    metric: "db_connections"
+    anomaly_value: 85
+    description: "DB-04 inventory reporting database connections elevated — stock level reconciliation failing"
+
+  - name: "LB-02 mobile checkout load balancer error spike"
+    t_offset: 1470
+    ci_id: "LB-02"
+    metric: "error_rate"
+    anomaly_value: 0.55
+    description: "LB-02 mobile store traffic error rate elevated — online cart purchases failing to complete"
+
+  - name: "AUTH-02 backend LDAP sync CPU overload"
+    t_offset: 1530
+    ci_id: "AUTH-02"
+    metric: "cpu_usage"
+    anomaly_value: 0.95
+    description: "AUTH-02 identity synchronization CPU critical — manager approval overrides failing at checkout"
+
+  - name: "APP-03 digital catalog search service CPU surge"
+    t_offset: 1590
+    ci_id: "APP-03"
+    metric: "cpu_usage"
+    anomaly_value: 0.92
+    description: "APP-03 product catalog search engine CPU overload — online customers experiencing empty search results"
+
+  - name: "APP-04 online coupon validator error spike"
+    t_offset: 1650
+    ci_id: "APP-04"
+    metric: "error_rate"
+    anomaly_value: 0.38
+    description: "APP-04 coupon code validation service error spike — promotional checkout codes failing"
+
+  - name: "REDIS-03 store locator cache hit rate collapse"
+    t_offset: 1710
+    ci_id: "REDIS-03"
+    metric: "cache_hit_rate"
+    anomaly_value: 0.15
+    description: "REDIS-03 store locator cache hit rate critical — regional store lookup queries timing out"
+
+  - name: "POS-03 scale driver interface error surge"
+    t_offset: 1770
+    ci_id: "POS-03"
+    metric: "error_rate"
+    anomaly_value: 0.46
+    description: "POS-03 produce scale weight sensor error rate spike — weighing items at checkout unavailable"
+
+  - name: "DB-05 pricing catalog database connection spike"
+    t_offset: 1830
+    ci_id: "DB-05"
+    metric: "db_connections"
+    anomaly_value: 94
+    description: "DB-05 item pricing database connections near capacity — pricing lookups failing on registers"
+
+  - name: "POS-01 journal writer service error spike"
+    t_offset: 1890
+    ci_id: "POS-01"
+    metric: "error_rate"
+    anomaly_value: 0.30
+    description: "POS-01 transaction log journal writer error surge — checkout logs failing to write to disk"
+
+  - name: "POS-02 cashier terminal touch driver CPU overload"
+    t_offset: 1950
+    ci_id: "POS-02"
+    metric: "cpu_usage"
+    anomaly_value: 0.90
+    description: "POS-02 touchscreen input driver CPU critical — register screens slow to respond to cashier touch"
+
+  - name: "DB-04 vendor supply database connection surge"
+    t_offset: 2010
+    ci_id: "DB-04"
+    metric: "db_connections"
+    anomaly_value: 83
+    description: "DB-04 supplier inventory database connections elevated — restocking order submissions failing"
+
+  - name: "LB-02 loyalty API gateway error spike"
+    t_offset: 2070
+    ci_id: "LB-02"
+    metric: "error_rate"
+    anomaly_value: 0.33
+    description: "LB-02 customer loyalty API gateway error surge — points balance lookups returning 502"
+
+  - name: "AUTH-02 employee badge sign-on error spike"
+    t_offset: 2130
+    ci_id: "AUTH-02"
+    metric: "error_rate"
+    anomaly_value: 0.49
+    description: "AUTH-02 RFID badge login service error rate elevated — cashiers unable to tap-to-sign-in"
+
+  - name: "APP-03 order fulfillment engine CPU overload"
+    t_offset: 2190
+    ci_id: "APP-03"
+    metric: "cpu_usage"
+    anomaly_value: 0.98
+    description: "APP-03 order fulfillment background process CPU critical — click-and-collect orders stalled"
+
+  - name: "APP-04 gift card processor error surge"
+    t_offset: 2250
+    ci_id: "APP-04"
+    metric: "error_rate"
+    anomaly_value: 0.62
+    description: "APP-04 gift card redemption API error rate spike — customer gift cards failing to activate"
+
+  - name: "REDIS-03 pricing matrix cache hit rate collapse"
+    t_offset: 2310
+    ci_id: "REDIS-03"
+    metric: "cache_hit_rate"
+    anomaly_value: 0.03
+    description: "REDIS-03 item pricing matrix cache hit rate critical — item price validation requests queuing"
+
+  - name: "POS-03 receipt printer spooler CPU spike"
+    t_offset: 2370
+    ci_id: "POS-03"
+    metric: "cpu_usage"
+    anomaly_value: 0.88
+    description: "POS-03 cashier print spooler CPU critical — register paper receipt printing delayed"
+
+  - name: "DB-05 tax rate lookup database connections surge"
+    t_offset: 2430
+    ci_id: "DB-05"
+    metric: "db_connections"
+    anomaly_value: 89
+    description: "DB-05 regional tax table database connections maxed out — tax calculations timing out"
+
+  - name: "POS-01 loyalty barcode scanner error spike"
+    t_offset: 2490
+    ci_id: "POS-01"
+    metric: "error_rate"
+    anomaly_value: 0.28
+    description: "POS-01 digital loyalty barcode parser error rate elevated — scanning loyalty codes failing"
+
+  - name: "POS-02 cash drawer status sensor CPU overload"
+    t_offset: 2550
+    ci_id: "POS-02"
+    metric: "cpu_usage"
+    anomaly_value: 0.95
+    description: "POS-02 cash drawer status sensor CPU critical — cashiers locked out of register screens"
+
+  - name: "DB-04 cashier roster database connection spike"
+    t_offset: 2610
+    ci_id: "DB-04"
+    metric: "db_connections"
+    anomaly_value: 91
+    description: "DB-04 cashier scheduling database connections near capacity — shift logins failing to register"
+
+  - name: "LB-02 secure payment gateway error rate spike"
+    t_offset: 2670
+    ci_id: "LB-02"
+    metric: "error_rate"
+    anomaly_value: 0.70
+    description: "LB-02 payment processing gateway error rate critical — online transactions failing checkout"
+
+  - name: "AUTH-02 manager override authentication error surge"
+    t_offset: 2730
+    ci_id: "AUTH-02"
+    metric: "error_rate"
+    anomaly_value: 0.54
+    description: "AUTH-02 manager override pin verification error spike — cashiers unable to approve voids"
+
+  - name: "APP-03 return merchandise validation CPU spike"
+    t_offset: 2790
+    ci_id: "APP-03"
+    metric: "cpu_usage"
+    anomaly_value: 0.96
+    description: "APP-03 merchandise returns validation service CPU critical — customer return processing halted"
+
+  - name: "APP-04 shipping label generation error surge"
+    t_offset: 2850
+    ci_id: "APP-04"
+    metric: "error_rate"
+    anomaly_value: 0.44
+    description: "APP-04 carrier shipping label generator error spike — package dispatching delayed"
+
+  - name: "REDIS-03 tax override cache hit rate collapse"
+    t_offset: 2910
+    ci_id: "REDIS-03"
+    metric: "cache_hit_rate"
+    anomaly_value: 0.10
+    description: "REDIS-03 tax override lookup cache hit rate critical — transaction tax calculations slow"
+
+  - name: "POS-03 payment terminal signature pad CPU overload"
+    t_offset: 2970
+    ci_id: "POS-03"
+    metric: "cpu_usage"
+    anomaly_value: 0.87
+    description: "POS-03 customer signature pad interface CPU critical — payment capture slow to register"
+
+  # ── Wave 2: Core Platform tier (Original Demo Scenarios Afterwards) ───────────
+  - name: "WEB-02 worker pool exhaustion"
+    t_offset: 3030
     ci_id: "WEB-02"
     metric: "error_rate"
     anomaly_value: 0.72
     description: "WEB-02 error rate spikes — worker pool exhausted"
 
   - name: "WEB-01 high error rate"
-    t_offset: 90
+    t_offset: 3090
     ci_id: "WEB-01"
     metric: "error_rate"
     anomaly_value: 0.55
     description: "WEB-01 error rate elevated — upstream timeout cascade"
 
   - name: "WEB-03 CRM error spike"
-    t_offset: 150
+    t_offset: 3150
     ci_id: "WEB-03"
     metric: "error_rate"
     anomaly_value: 0.68
     description: "WEB-03 (CRM) error rate spike — possible DB-03 saturation"
 
-  # ── Wave 2: Database tier ─────────────────────────────────────────────────────
   - name: "DB-01 connection pool exhaustion"
-    t_offset: 210
+    t_offset: 3210
     ci_id: "DB-01"
     metric: "db_connections"
     anomaly_value: 98
     description: "DB-01 connection count near limit — billing and sales impacted"
 
   - name: "DB-02 replica lag connection surge"
-    t_offset: 270
+    t_offset: 3270
     ci_id: "DB-02"
     metric: "db_connections"
     anomaly_value: 89
     description: "DB-02 replica connection surge — HR portal queries queueing"
 
   - name: "DB-03 CRM DB overload"
-    t_offset: 330
+    t_offset: 3330
     ci_id: "DB-03"
     metric: "db_connections"
     anomaly_value: 93
     description: "DB-03 (MySQL CRM) connections at capacity — CRM app degraded"
 
-  # ── Wave 3: Cache tier ────────────────────────────────────────────────────────
   - name: "REDIS-01 cache stampede"
-    t_offset: 390
+    t_offset: 3390
     ci_id: "REDIS-01"
     metric: "cache_hit_rate"
     anomaly_value: 0.08
     description: "REDIS-01 cache hit rate collapsed — thundering herd on DB-01"
 
   - name: "REDIS-02 session cache failure"
-    t_offset: 450
+    t_offset: 3450
     ci_id: "REDIS-02"
     metric: "cache_hit_rate"
     anomaly_value: 0.12
     description: "REDIS-02 session cache hit rate critical — user sessions dropping"
 
-  # ── Wave 4: Compute tier ──────────────────────────────────────────────────────
   - name: "AUTH-01 CPU spike"
-    t_offset: 510
+    t_offset: 3510
     ci_id: "AUTH-01"
     metric: "cpu_usage"
     anomaly_value: 0.95
     description: "AUTH-01 CPU at 95% — login failures expected across all apps"
 
   - name: "APP-01 billing server CPU"
-    t_offset: 570
+    t_offset: 3570
     ci_id: "APP-01"
     metric: "cpu_usage"
     anomaly_value: 0.91
     description: "APP-01 (Billing) CPU overload — invoice processing stalled"
 
   - name: "APP-02 HR server CPU spike"
-    t_offset: 630
+    t_offset: 3630
     ci_id: "APP-02"
     metric: "cpu_usage"
     anomaly_value: 0.88
     description: "APP-02 (HR) CPU spike — payroll batch job contention"
 
-  # ── Wave 5: Infrastructure ────────────────────────────────────────────────────
   - name: "MQ-01 message queue CPU overload"
-    t_offset: 690
+    t_offset: 3690
     ci_id: "MQ-01"
     metric: "cpu_usage"
     anomaly_value: 0.93
     description: "MQ-01 (RabbitMQ) CPU critical — billing event queue backing up"
 
   - name: "LB-01 load balancer error surge"
-    t_offset: 750
+    t_offset: 3750
     ci_id: "LB-01"
     metric: "error_rate"
     anomaly_value: 0.45

@@ -15,8 +15,8 @@ SYSTEM_PROMPT = """You are an IT remediation specialist.
 Given the original incident report and root-cause hypothesis, select the BEST-MATCHING runbook.
 
 Domain matching rules (follow strictly):
-- Internet slow / high latency / speed slow / "network is slow" / "connection slow" → diagnose_internet
-- No internet / completely offline / can't reach websites / packet loss             → diagnose_internet
+- Internet slow / sluggish / high latency / speed issues / "my internet is slow"    → reset_network_adapter
+- No internet / completely offline / can't reach websites / packet loss              → diagnose_internet
 - DNS / name resolution / "can't resolve" / nslookup fails                          → flush_dns
 - VPN / tunnel / remote access / VPN timeout / VPN dropped                          → reconnect_vpn
 - Wi-Fi adapter disconnecting / adapter malfunction / adapter not found              → reset_network_adapter
@@ -27,8 +27,8 @@ Domain matching rules (follow strictly):
 - Cache / Redis issues                                                               → clear_cache
 - Worker count / scaling                                                             → scale_workers
 
-IMPORTANT: "slow" means diagnose_internet. Only use reset_network_adapter when the adapter itself
-is dropping or malfunctioning — NOT for general slowness.
+IMPORTANT: "slow" internet/network always means reset_network_adapter (adapter reset fixes sluggishness).
+Only use diagnose_internet when the user is completely offline or can't reach anything.
 Match the incident DOMAIN to the runbook DOMAIN. Never pick a database runbook for a network problem.
 Return ONLY valid JSON. Do not add commentary.
 """
@@ -58,10 +58,16 @@ async def remediation_node(state: AgentState) -> dict:
         logger.warning("Could not fetch runbook catalogue from MCP: %s", exc)
         # Fall back to static list
         runbook_catalogue = [
-            {"id": "restart_web_service", "title": "Restart web service", "params": {"host": "str", "service": "str"}},
+            {"id": "diagnose_internet",          "title": "Diagnose internet connectivity", "params": {}},
+            {"id": "flush_dns",                  "title": "Flush DNS cache", "params": {}},
+            {"id": "reconnect_vpn",              "title": "Reconnect VPN", "params": {"host": "str"}},
+            {"id": "reset_network_adapter",      "title": "Reset network adapter", "params": {}},
+            {"id": "reset_network_stack",        "title": "Reset network stack (Winsock/TCP)", "params": {}},
+            {"id": "restart_web_service",        "title": "Restart web service", "params": {"host": "str", "service": "str"}},
             {"id": "restart_db_connection_pool", "title": "Restart DB connection pool", "params": {"host": "str"}},
-            {"id": "clear_cache", "title": "Clear cache", "params": {"host": "str"}},
-            {"id": "scale_workers", "title": "Scale workers", "params": {"host": "str", "count": "int"}},
+            {"id": "restart_app_service",        "title": "Restart app service", "params": {"host": "str"}},
+            {"id": "clear_cache",                "title": "Clear cache / Redis flush", "params": {"host": "str"}},
+            {"id": "scale_workers",              "title": "Scale workers", "params": {"host": "str", "count": "int"}},
         ]
 
     valid_ids = {r["id"] for r in runbook_catalogue}

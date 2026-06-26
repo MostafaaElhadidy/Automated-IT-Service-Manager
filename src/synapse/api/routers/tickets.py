@@ -81,7 +81,7 @@ async def investigate_ticket(
     )
 
     input_state = {
-        "user_id": "dashboard_investigate",
+        "user_id": "monitoring_system",
         "session_id": session_id,
         "chat_history": [],
         "conversation": [

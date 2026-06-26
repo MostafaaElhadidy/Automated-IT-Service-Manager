@@ -40,7 +40,11 @@ NEGATIVE_FEEDBACK = {
 # ── Routing functions (deterministic — no LLM) ───────────────────────────────
 
 def route_entry(state: AgentState) -> str:
-    """Conditional entry point: new message or deflect-followup."""
+    """Conditional entry point: new message, deflect-followup, or monitoring bypass."""
+    # Monitoring alerts already have a ticket + request_type — skip fast-path and
+    # intake to avoid duplicate ticket creation and potential mis-classification.
+    if state.user_id == "monitoring_system":
+        return "monitoring"
     last = state.conversation[-1].content.lower() if state.conversation else ""
     active = state.active_ticket_id
     if active and active in state.tickets:
@@ -128,6 +132,7 @@ def build_graph(checkpointer=None):
         {
             "deflect_followup": "intake",   # user said prior deflection didn't help
             "new":              "fast_path",
+            "monitoring":       "rca",      # bypass fast-path/intake for auto-alerts
         },
     )
 
