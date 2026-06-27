@@ -48,8 +48,12 @@ def _load_catalogue() -> dict[str, dict]:
 _CATALOGUE: dict[str, dict] = _load_catalogue()
 
 # Sync DB URL for psycopg2 (not asyncpg)
+# Prefer SYNAPSE_DATABASE_URL (set in .env), fall back to DATABASE_URL, then hardcoded default.
 _DB_URL_SYNC = (
-    os.getenv("DATABASE_URL", "postgresql+asyncpg://synapse:synapse@localhost:5432/synapse")
+    os.getenv(
+        "SYNAPSE_DATABASE_URL",
+        os.getenv("DATABASE_URL", "postgresql+asyncpg://synapse:synapse@localhost:5433/synapse"),
+    )
     .replace("postgresql+asyncpg://", "postgresql://")
     .replace("postgresql+psycopg2://", "postgresql://")
 )
@@ -653,6 +657,207 @@ def _execute_reset_network_stack(_parameters: dict) -> list[dict]:
     })
 
     return results
+
+
+# ── Remote PowerShell scripts (sent to user PC via MeshCentral) ───────────────
+# These are the PowerShell equivalents of the user-PC runbooks.
+# The self-report wrapper is added by execute_runbook_remote() at dispatch time.
+
+_REMOTE_PS: dict[str, str] = {
+    "flush_dns": r"""
+ipconfig /flushdns
+net stop dnscache 2>$null
+net start dnscache 2>$null
+$ok = $LASTEXITCODE -eq 0
+try { [System.Net.Dns]::GetHostAddresses('google.com') | Out-Null; $verify = 'DNS resolved google.com' }
+catch { $verify = 'DNS resolution still failing' }
+Report-Step -step 'flush_dns' -ok $ok -output $verify
+""".strip(),
+
+    "reset_network_adapter": r"""
+$adapter = (Get-NetAdapter | Where-Object { $_.Status -eq 'Up' -and $_.Name -notmatch 'Loopback|vEthernet' } | Select-Object -First 1).Name
+if (-not $adapter) { Report-Step -step 'detect_adapter' -ok $false -output 'No active adapter found'; exit 1 }
+Report-Step -step 'detect_adapter' -ok $true -output "Target adapter: $adapter"
+Disable-NetAdapter -Name $adapter -Confirm:$false
+Start-Sleep 3
+Enable-NetAdapter -Name $adapter -Confirm:$false
+Start-Sleep 3
+try { [System.Net.Dns]::GetHostAddresses('google.com') | Out-Null; $ok = $true; $out = 'Connectivity restored' }
+catch { $ok = $false; $out = 'Connectivity not yet restored' }
+Report-Step -step 'reset_adapter' -ok $ok -output $out
+""".strip(),
+
+    "diagnose_internet": r"""
+# TCP latency
+try {
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+    $t = New-Object System.Net.Sockets.TcpClient; $t.Connect('8.8.8.8', 53); $t.Close(); $sw.Stop()
+    $lat = [math]::Round($sw.Elapsed.TotalMilliseconds, 1)
+    $q = if ($lat -lt 80) { 'good' } elseif ($lat -lt 200) { 'acceptable' } else { 'slow' }
+    Report-Step -step 'tcp_latency' -ok $true -output "8.8.8.8:53 latency ${lat}ms — $q"
+} catch { Report-Step -step 'tcp_latency' -ok $false -output "TCP unreachable: $_" }
+# DNS
+try { $ip = [System.Net.Dns]::GetHostAddresses('google.com')[0].IPAddressToString; Report-Step -step 'dns' -ok $true -output "google.com -> $ip" }
+catch { Report-Step -step 'dns' -ok $false -output "DNS failed: $_" }
+# HTTP
+try { $r = Invoke-WebRequest 'http://www.google.com' -TimeoutSec 6 -UseBasicParsing; Report-Step -step 'http' -ok $true -output "HTTP $($r.StatusCode)" }
+catch { Report-Step -step 'http' -ok $false -output "HTTP failed: $_" }
+# Adapters
+$adapters = Get-NetAdapter | Where-Object { $_.Status -eq 'Up' } | Select-Object -ExpandProperty Name
+Report-Step -step 'adapters' -ok $true -output "Active: $($adapters -join ', ')"
+""".strip(),
+
+    "reconnect_vpn": r"""
+$vpnName = '{vpn_name}'
+$vpns = Get-VpnConnection 2>$null
+if (-not $vpns) { Report-Step -step 'vpn_list' -ok $false -output 'No VPN connections configured'; exit 0 }
+Report-Step -step 'vpn_list' -ok $true -output ($vpns | Select-Object Name, ConnectionStatus | ConvertTo-Json -Compress)
+if ($vpnName) {
+    rasdial $vpnName /disconnect 2>$null
+    Start-Sleep 2
+    $r = rasdial $vpnName 2>&1
+    $ok = $LASTEXITCODE -eq 0
+    Report-Step -step 'vpn_reconnect' -ok $ok -output ($r -join ' ')
+}
+""".strip(),
+
+    "reset_network_stack": r"""
+ipconfig /flushdns
+$r1 = netsh winsock reset 2>&1; Report-Step -step 'winsock_reset' -ok ($LASTEXITCODE -eq 0) -output ($r1 -join ' ')
+$r2 = netsh int ip reset 2>&1; Report-Step -step 'tcpip_reset' -ok ($LASTEXITCODE -eq 0) -output ($r2 -join ' ')
+Report-Step -step 'note' -ok $true -output 'Network stack reset. Restart required for full effect.'
+""".strip(),
+}
+
+# PowerShell self-report wrapper — injected around the command body
+_PS_WRAPPER = """\
+$_backendUrl = '{backend_url}/agent/result'
+$_jobId = '{job_id}'
+$_nodeId = '{nodeid}'
+$_runbookId = '{runbook_id}'
+$_token = '{job_token}'
+
+function Report-Step {{
+    param([string]$step, [bool]$ok, [string]$output)
+    $body = @{{
+        job_id = $_jobId; nodeid = $_nodeId; runbook_id = $_runbookId
+        step = $step; ok = $ok; output = $output; ts = (Get-Date -Format 'o')
+    }} | ConvertTo-Json -Compress
+    try {{
+        Invoke-RestMethod -Method Post -Uri $_backendUrl -ContentType 'application/json' `
+            -Body $body -Headers @{{ 'X-Job-Token' = $_token }} -TimeoutSec 10 | Out-Null
+    }} catch {{}}
+}}
+
+try {{
+    {body}
+    Report-Step -step 'complete' -ok $true -output 'Runbook completed'
+}} catch {{
+    Report-Step -step 'complete' -ok $false -output $_.Exception.Message
+}}"""
+
+
+def build_remote_ps(
+    runbook_id: str,
+    parameters: dict,
+    job_id: str,
+    nodeid: str,
+    job_token: str,
+    backend_url: str,
+) -> str | None:
+    """Return the full PowerShell script to dispatch to a remote device, or None."""
+    body_template = _REMOTE_PS.get(runbook_id)
+    if body_template is None:
+        return None
+    # Interpolate runbook-level parameters (e.g. {vpn_name})
+    try:
+        body = body_template.format(**{k: str(v) for k, v in parameters.items()})
+    except KeyError:
+        body = body_template  # leave unresolved placeholders
+
+    return _PS_WRAPPER.format(
+        backend_url=backend_url,
+        job_id=job_id,
+        nodeid=nodeid,
+        runbook_id=runbook_id,
+        job_token=job_token,
+        body=body,
+    )
+
+
+async def execute_runbook_remote(
+    runbook_id: str,
+    parameters: dict,
+    nodeid: str,
+    os_platform: str = "windows",
+) -> dict:
+    """Dispatch a runbook to a remote device via MeshCentral + await callback.
+
+    Returns a dict compatible with execute_runbook's return value so verify.py
+    can treat local and remote execution the same way.
+    """
+    from synapse.config import settings
+    from synapse.api import job_result_store
+    from synapse.mcp_servers import meshcentral_client
+
+    # Create job entry (sets up asyncio.Event for await)
+    job = job_result_store.create_job(nodeid, runbook_id)
+    token = job_result_store.make_job_token(job.job_id)
+
+    # Build the script
+    script = build_remote_ps(
+        runbook_id=runbook_id,
+        parameters=parameters,
+        job_id=job.job_id,
+        nodeid=nodeid,
+        job_token=token,
+        backend_url=settings.api_base_url,
+    )
+    if script is None:
+        job_result_store.clear_job(job.job_id)
+        return {
+            "status": "error",
+            "runbook_id": runbook_id,
+            "before": {},
+            "after": {},
+            "host": nodeid,
+            "steps": [{"step": "error", "ok": False,
+                        "output": f"No remote script defined for runbook '{runbook_id}'"}],
+        }
+
+    shell = "bash" if os_platform in ("darwin", "linux") else "powershell"
+    dispatched = await meshcentral_client.run_remote(nodeid, script, shell=shell, timeout=30)
+    if not dispatched:
+        job_result_store.clear_job(job.job_id)
+        return {
+            "status": "error",
+            "runbook_id": runbook_id,
+            "before": {},
+            "after": {},
+            "host": nodeid,
+            "steps": [{"step": "dispatch", "ok": False,
+                        "output": "Failed to dispatch command via MeshCentral"}],
+        }
+
+    # Await the callback (script self-reports to /agent/result)
+    result = await job_result_store.await_result(job.job_id, timeout=120.0)
+    job_result_store.clear_job(job.job_id)
+
+    if result is None:
+        steps = [{"step": "error", "ok": False, "output": "Job result vanished unexpectedly"}]
+        success = False
+    else:
+        steps = result.steps
+        success = result.ok
+
+    return {
+        "status": "executed" if success else "partial",
+        "runbook_id": runbook_id,
+        "before": {},
+        "after": {},
+        "host": nodeid,
+        "steps": steps,
+    }
 
 
 # Dispatcher: runbook_id -> executor

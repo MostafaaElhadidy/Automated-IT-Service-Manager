@@ -1,0 +1,19 @@
+{
+  "settings": {
+    "cert": "192.168.1.14",
+    "port": 8443,
+    "redirPort": 8444,
+    "selfUpdate": false,
+    "allowLoginToken": true,
+    "allowFraming": true,
+    "agentIdleTimeout": 150
+  },
+  "domains": {
+    "": {
+      "title": "SynapseITSM",
+      "title2": "Remote Remediation",
+      "userNameIsEmail": true,
+      "newAccounts": true
+    }
+  }
+}

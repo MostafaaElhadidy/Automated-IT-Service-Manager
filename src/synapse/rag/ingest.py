@@ -9,6 +9,7 @@ import uuid
 from typing import Any
 
 import chromadb
+from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
 
 from synapse.config import settings
 
@@ -605,8 +606,12 @@ SEED_INCIDENTS: list[dict[str, str]] = [
 
 def _get_collection() -> chromadb.Collection:
     client = chromadb.PersistentClient(path=settings.chroma_dir)
+    # Use sentence-transformers (installed locally) instead of the default
+    # ONNXMiniLM_L6_V2 which requires downloading a model file from the internet.
+    ef = SentenceTransformerEmbeddingFunction(model_name="all-MiniLM-L6-v2")
     return client.get_or_create_collection(
         name=COLLECTION_NAME,
+        embedding_function=ef,
         metadata={"hnsw:space": "cosine"},
     )
 

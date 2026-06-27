@@ -2,7 +2,9 @@
 
 An AI-powered IT Service Management (ITSM) system where users describe IT problems in plain language, and a multi-agent system triages, diagnoses, and remediates them. It integrates a Human-in-the-Loop (HITL) workflow, ensuring all remediation actions require explicit operator approval before execution.
 
-Built as a graduation project demonstration utilizing **LangGraph**, **FastAPI**, **Chainlit**, and **Streamlit**.
+A key capability is **remote remediation**: once an operator approves a fix, the Remediation agent can apply it **directly on the affected user's PC or laptop** — even off-site — via a self-hosted [MeshCentral](https://meshcentral.com) endpoint-management layer. The user does nothing technical; the verified fix is pushed to their machine and the result is reported back automatically.
+
+Built as a graduation project demonstration utilizing **LangGraph**, **FastAPI**, **Chainlit**, **Streamlit**, and **MeshCentral**.
 
 ---
 
@@ -61,9 +63,56 @@ User message
 1. **Fast-Path / Deflection (ChromaDB Vector Search)**: Intercepts incoming requests immediately. It queries a ChromaDB vector database to find semantically similar past incidents. If a high-confidence match is found, it directly proposes the known resolution (deflection).
 2. **Triage / Intake Agent (Llama 3.1 8B)**: If deflection fails or the user states the solution was not helpful, the Intake Agent classifies the ticket category (`incident` or `request`), extracts the affected Configuration Item (CI) name, and computes the initial priority (P1–P4) based on system impact.
 3. **Root Cause Analysis (RCA) Agent (Llama 3.3 70B)**: Active only for incidents. It connects directly to real-time system metrics (CPU, memory, database connection counts, network latency) and queries the Configuration Management Database (CMDB) to trace upstream and downstream dependencies. It synthesizes this data to identify the true root cause.
-4. **Remediation Agent (Llama 3.3 70B)**: Reviews the RCA findings and matches them against the available runbooks. It prepares a step-by-step execution plan and constructs the exact parameters needed for the runbook tool.
+4. **Remediation Agent (Llama 3.3 70B)**: Reviews the RCA findings and matches them against the available runbooks. It prepares a step-by-step execution plan and constructs the exact parameters needed for the runbook tool. For endpoint-class issues, it resolves an **execution target** — local server vs. the affected user's enrolled device — and dispatches the runbook accordingly.
 5. **Human-in-the-Loop (HITL) Node**: Pauses the LangGraph execution state when a runbook action is proposed. The state remains suspended until an operator approves or rejects the action via the Streamlit dashboard.
 6. **Monitoring / Alerting Agent**: A background task that polls system metrics. If an anomaly is detected, it automatically generates a P1 incident ticket and triggers the graph workflow.
+
+---
+
+## 🖥️ Remote Remediation (MeshCentral)
+
+SynapseITSM can apply fixes **on the end user's own machine**, not just on the server. This closes the loop on endpoint problems (DNS, network adapter, VPN, network stack) that previously required a technician to physically touch the device.
+
+### How it works
+
+```
+Approved runbook
+      │
+      ▼
+ Resolve execution target ──► local server  ──► subprocess (existing behavior)
+      │
+      └────────────────────► remote device (user's PC)
+                                   │
+                                   ▼
+                      meshctrl runcommand (base64 PowerShell)
+                                   │
+                                   ▼
+                       MeshAgent runs the script on the PC
+                                   │
+                       Report-Step POSTs each step's result
+                                   ▼
+                       POST /agent/result  (HMAC-verified)
+                                   │
+                                   ▼
+                  Backend awaits callback, verifies, closes ticket
+```
+
+* **MeshCentral** is a self-hosted remote-management server. A lightweight **MeshAgent** installed on each user device dials home over an outbound WebSocket — **no inbound ports or public IP required** on the user side.
+* The backend drives MeshCentral through the **`meshctrl` CLI** (via subprocess), avoiding a re-implementation of MeshCentral's WebSocket auth protocol.
+* Because `meshctrl runcommand` does not reliably return script output, each remote runbook uses a **self-report pattern**: the PowerShell script POSTs structured per-step results to `POST /agent/result`, secured with a **per-job HMAC token** (`X-Job-Token`). The backend blocks on an `asyncio.Event` until the callback arrives.
+* **The HITL gate is preserved end-to-end** — nothing runs on a user's PC until IT approves it in the dashboard.
+
+### Linking a user to a device
+
+Devices are mapped to users by a per-user `meshcentral_nodeid` (plus hostname / IP / OS / online status) stored on the `users` table. A dedicated **Device Manager** Streamlit page lets IT:
+
+* Search users by email, name, or ID
+* Auto-map devices via **Sync from MeshCentral** (matches the MeshCentral device name to a user's email)
+* Manually link / unlink a device's Node ID
+
+> Remote-capable runbooks: `diagnose_internet`, `flush_dns`, `reset_network_adapter`, `reconnect_vpn`, `reset_network_stack`. Server-side runbooks (DB pool, web/app service, cache, workers) continue to run locally. If a device is offline or unlinked, execution **falls back to the local server** automatically.
+
+See [`docs/MESHCENTRAL_PLAN.md`](docs/MESHCENTRAL_PLAN.md) for the full design and build order.
 
 ---
 
@@ -77,7 +126,7 @@ PostgreSQL handles the structured relational data. The schema is managed via SQL
 * **CI Relationships (`ci_relationships`)**: The topology dependency graph mapping links (e.g., `POS-01` depends on `LB-02`, which depends on `APP-03`).
 * **Tickets (`tickets`)**: Active and historical tickets containing category, priority, status, and summary.
 * **Action Logs (`action_log`)**: Sequential records of runbook proposals, approvals, executions, or failures.
-* **Users (`users`)**: Relational records for identity, roles (`admin`, `it_team`, `end_user`), and password hashes.
+* **Users (`users`)**: Relational records for identity, roles (`admin`, `it_team`, `end_user`), and password hashes. Also holds the **device-link columns** (`meshcentral_nodeid`, `device_hostname`, `last_known_ip`, `os_platform`, `agent_online`, `device_last_seen`) that bind a user to their enrolled remote-remediation endpoint.
 
 ### 2. ChromaDB (Vector Store & RAG)
 ChromaDB handles semantic retrieval and the agentic "learning loop" in `src/synapse/rag/`:
@@ -110,14 +159,16 @@ The simulator (`src/synapse/sim/generator.py`) reads `src/synapse/sim/scenarios.
 | 🔍 Vector store (RAG) | ChromaDB |
 | 📖 Runbook server | FastMCP |
 | 📧 Email alerts | Resend API |
+| 🖥️ Remote endpoints | MeshCentral + `meshctrl` CLI |
 
 ---
 
 ## ✅ Prerequisites
 
 - Python 3.11+
-- Docker Desktop (for PostgreSQL)
+- Docker Desktop (for PostgreSQL — and optionally MeshCentral)
 - A free [Groq API key](https://console.groq.com)
+- *(Optional, for remote remediation)* Node.js 18+ and the `meshctrl` CLI (`npm install -g meshcentral`)
 
 ---
 
@@ -178,7 +229,8 @@ python -m synapse.rag.ingest
 
 **Terminal 1 — Backend API (Core Engine + Monitoring Loop)**
 ```bash
-python -m uvicorn synapse.api.main:app --reload --port 8000
+python -m uvicorn synapse.api.main:app --host 0.0.0.0 --port 8000 --reload
+
 ```
 
 **Terminal 2 — Chat UI (Chainlit Client)**
@@ -191,11 +243,61 @@ chainlit run ui/chat_app.py --port 8001
 streamlit run ui/dashboard.py --server.port 8502
 ```
 
+**Terminal 4 — Device Manager (link users to remote devices)** *(optional)*
+```bash
+streamlit run ui/device_manager.py --server.port 8503
+```
+
 | Component | URL |
 |---|---|
 | 💬 Chat UI (end users) | http://localhost:8001 |
 | 📊 Ops Dashboard (IT team) | http://localhost:8502 |
+| 🖥️ Device Manager (IT team) | http://localhost:8503 |
 | 📄 API Swagger Docs | http://localhost:8000/docs |
+
+---
+
+## 🖥️ Enabling Remote Remediation *(optional)*
+
+Remote remediation is **off by default** — the system runs fully without it. To enable applying fixes on users' machines:
+
+### 1. Start MeshCentral
+
+```bash
+docker compose --profile meshcentral up -d
+```
+
+Then open `https://<host>:8443`, create an admin account, and create a device group named **`SynapseITSM-Endpoints`**. (`meshcentral-config.json` ships a ready config — set `cert` to your host's LAN IP so other machines can connect.)
+
+### 2. Install the `meshctrl` CLI
+
+```bash
+npm install -g meshcentral
+```
+
+### 3. Configure `.env`
+
+```env
+MESHCENTRAL_ENABLED=true
+MESHCENTRAL_URL=wss://<host>:8443/control.ashx
+MESHCENTRAL_USER=<your-meshcentral-admin-email>
+MESHCENTRAL_PASSWORD=<your-meshcentral-admin-password>
+MESHCENTRAL_DEVICE_GROUP=SynapseITSM-Endpoints
+MESHCENTRAL_VERIFY_TLS=false                       # true in prod with real certs
+# npm installs meshctrl as a .js file — invoke it via node directly:
+MESHCENTRAL_MESHCTRL=node /path/to/node_modules/meshcentral/meshctrl.js
+API_BASE_URL=http://<host>:8000                    # the address user devices call back to
+```
+
+> The backend must be reachable from user devices at `API_BASE_URL` for the result callback. Bind it with `--host 0.0.0.0` and allow inbound TCP on port `8000` in your firewall.
+
+### 4. Enroll a device & link it
+
+1. In MeshCentral, open the **SynapseITSM-Endpoints** group → **Add Agent** → run the installer on the user's PC (it installs a background service).
+2. Rename the device in MeshCentral to the user's **email** (e.g. `sara@synapse.io`).
+3. In the **Device Manager** (port 8503), click **Sync from MeshCentral** — the device auto-links to the matching user.
+
+> The device-link columns are added by migration `0003` (already included in `alembic upgrade head`). If you set up the DB on an older schema, run `python -m alembic upgrade head` again.
 
 ---
 
@@ -225,29 +327,36 @@ streamlit run ui/dashboard.py --server.port 8502
 synapseitsm/
 ├── src/synapse/
 │   ├── agents/          # 🤖 Intake, RCA, Remediation, Monitoring agents
-│   ├── api/             # 🚀 FastAPI routers (auth, chat, tickets, approvals...)
-│   ├── db/              # 🗄️ SQLAlchemy models, Alembic migrations, seed data
+│   ├── api/             # 🚀 FastAPI routers (auth, chat, tickets, approvals, devices...)
+│   │   ├── routers/devices.py     # 🖥️ Device CRUD, sync, /agent/result callback
+│   │   └── job_result_store.py    # ⏳ Per-job asyncio.Event + HMAC job tokens
+│   ├── db/             # 🗄️ SQLAlchemy models, Alembic migrations, seed data
 │   ├── nodes/           # 🔗 LangGraph nodes (fast_path, deflect, hitl, verify...)
 │   ├── rag/             # 🔍 ChromaDB ingest + retriever
 │   ├── sim/             # 🎲 Anomaly simulator (generates monitoring alerts)
 │   ├── tools/           # 🛠️ Agent tools (CMDB query, SLA, email, priority)
 │   ├── mcp_servers/     # 📖 FastMCP runbook server + client
+│   │   └── meshcentral_client.py  # 🖥️ Drives the meshctrl CLI (remote exec)
+│   ├── exec_target.py   # 🎯 Resolves local vs. remote execution target
 │   ├── graph.py         # 🕸️ LangGraph wiring — the full agent pipeline
 │   ├── state.py         # 📦 AgentState (shared state across all nodes)
 │   ├── llm.py           # 🔀 LiteLLM wrapper with per-agent model routing
 │   └── config.py        # ⚙️ Settings loaded from .env
 ├── ui/
 │   ├── chat_app.py      # 💬 Chainlit chat interface
-│   └── dashboard.py     # 📊 Streamlit ops dashboard
+│   ├── dashboard.py     # 📊 Streamlit ops dashboard
+│   └── device_manager.py # 🖥️ Streamlit page: link users to remote devices
 ├── data/
 │   ├── runbooks/        # 📋 YAML runbook definitions
 │   └── chroma/          # 🗃️ ChromaDB vector store (generated by make ingest)
-├── migrations/          # 🔄 Alembic migration scripts
+├── migrations/          # 🔄 Alembic migration scripts (0003 = device columns)
 ├── scripts/             # 🛠️ Helper scripts (test scenarios, monitoring reset)
 │   ├── test_scenarios.py
 │   └── reset_monitoring_tickets.py
+├── docs/                # 📄 MeshCentral plan + executive brief
 ├── tests/               # 🧪 Pytest test suite
-├── docker-compose.yml   # 🐳 PostgreSQL service
+├── docker-compose.yml   # 🐳 PostgreSQL + (optional) MeshCentral service
+├── meshcentral-config.json # 🖥️ MeshCentral server config
 ├── Makefile             # ⚡ Convenience commands
 └── .env.example         # 🔐 Environment variable template
 ```

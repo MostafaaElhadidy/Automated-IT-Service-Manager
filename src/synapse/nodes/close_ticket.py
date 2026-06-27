@@ -31,12 +31,6 @@ async def close_ticket_node(state: AgentState) -> dict:
         # Write resolution back to Chroma (learning loop)
         if state.hypotheses and state.pending_action:
             top_hyp = state.hypotheses[-1]
-            resolution_text = (
-                f"Symptom: {state.tickets[ticket_id].summary if ticket_id in state.tickets else 'unknown'}\n"
-                f"Root cause: {top_hyp.statement}\n"
-                f"Remediation: {state.pending_action.runbook_id}\n"
-                f"Result: resolved"
-            )
             try:
                 from synapse.rag.ingest import ingest_resolution
                 await ingest_resolution(
@@ -48,30 +42,12 @@ async def close_ticket_node(state: AgentState) -> dict:
             except Exception as exc:
                 logger.warning("Failed to write resolution to Chroma: %s", exc)
 
-    # Build rich resolution summary
-    action = state.pending_action
     top_hyp = state.hypotheses[-1] if state.hypotheses else None
 
-    summary_parts = [f"Ticket **{ticket_id}** resolved and closed.\n"]
-
-    if top_hyp:
-        summary_parts.append(f"**Root cause:** {top_hyp.statement}")
-
-    if action:
-        summary_parts.append(
-            f"**Action taken:** Ran `{action.runbook_id}` on `{action.parameters.get('host', 'localhost')}`"
-        )
-
-    if state.execution_summary:
-        summary_parts.append(f"\n{state.execution_summary}")
-    else:
-        summary_parts.append(
-            "**Result:** Service recovered. Resolution recorded in the knowledge base for future deflection."
-        )
+    problem = (top_hyp.user_summary or top_hyp.statement) if top_hyp else "your issue"
+    reply = f"All sorted! {problem.rstrip('.')} has been resolved. Let me know if anything else comes up."
 
     return {
         "tickets": ticket_updates,
-        "conversation": [
-            Message(role="assistant", content="\n".join(summary_parts))
-        ],
+        "conversation": [Message(role="assistant", content=reply)],
     }

@@ -32,6 +32,7 @@ class Finding(BaseModel):
 
 class Hypothesis(BaseModel):
     statement: str
+    user_summary: str = ""  # plain English problem description for end users
     evidence: list[Finding]  # must be non-empty
     confidence: float = Field(ge=0.0, le=1.0)
     remediation_id: str | None = None

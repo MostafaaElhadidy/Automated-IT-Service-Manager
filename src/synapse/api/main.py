@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from synapse.graph import build_graph
 from synapse.agents.monitoring import run_monitoring_loop, drain_alerts
-from synapse.api.routers import chat, tickets, cmdb, metrics, approvals, health, alerts, auth
+from synapse.api.routers import chat, tickets, cmdb, metrics, approvals, health, alerts, auth, devices
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -26,10 +26,22 @@ async def lifespan(app: FastAPI):
     # Monitoring alert queue
     app.state.alerts = asyncio.Queue()
 
-    # Background tasks: monitoring loop + drain
+    # Background tasks: monitoring loop + drain + MeshCentral status refresh
+    async def _mesh_refresh_loop():
+        from synapse.mcp_servers import meshcentral_client
+        from synapse.config import settings
+        while True:
+            await asyncio.sleep(60)
+            if settings.meshcentral_enabled:
+                try:
+                    await meshcentral_client.refresh_online_status()
+                except Exception as exc:
+                    logger.debug("MeshCentral status refresh failed: %s", exc)
+
     app.state.tasks = [
         asyncio.create_task(run_monitoring_loop(app.state.alerts), name="monitoring_loop"),
         asyncio.create_task(drain_alerts(app.state.alerts, app.state.graph), name="drain_alerts"),
+        asyncio.create_task(_mesh_refresh_loop(), name="mesh_refresh"),
     ]
     logger.info("Monitoring tasks started")
 
@@ -56,5 +68,5 @@ app.add_middleware(
 )
 
 # Register all routers
-for r in (auth, chat, tickets, cmdb, metrics, approvals, health, alerts):
+for r in (auth, chat, tickets, cmdb, metrics, approvals, health, alerts, devices):
     app.include_router(r.router)

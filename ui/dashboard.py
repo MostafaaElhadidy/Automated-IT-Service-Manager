@@ -109,6 +109,60 @@ def post_reject(session_id: str, action_id: str) -> tuple[bool, str]:
         return False, str(exc)
 
 
+def fetch_user_devices(q: str = "") -> list[dict]:
+    try:
+        url = f"{API_BASE}/devices/users"
+        params = {}
+        if q:
+            url = f"{API_BASE}/devices/users/search"
+            params["q"] = q
+        resp = httpx.get(url, params=params, headers=_auth_headers(), timeout=5)
+        resp.raise_for_status()
+        return resp.json()
+    except Exception:
+        return []
+
+
+def update_user_device(user_id: str, payload: dict) -> tuple[bool, str]:
+    try:
+        resp = httpx.put(
+            f"{API_BASE}/devices/users/{user_id}",
+            json=payload,
+            headers=_auth_headers(),
+            timeout=10,
+        )
+        resp.raise_for_status()
+        return True, ""
+    except Exception as exc:
+        return False, str(exc)
+
+
+def unlink_user_device(user_id: str) -> tuple[bool, str]:
+    try:
+        resp = httpx.delete(
+            f"{API_BASE}/devices/users/{user_id}/device",
+            headers=_auth_headers(),
+            timeout=10,
+        )
+        resp.raise_for_status()
+        return True, ""
+    except Exception as exc:
+        return False, str(exc)
+
+
+def sync_devices() -> tuple[bool, dict]:
+    try:
+        resp = httpx.post(
+            f"{API_BASE}/devices/sync",
+            headers=_auth_headers(),
+            timeout=30,
+        )
+        resp.raise_for_status()
+        return True, resp.json()
+    except Exception as exc:
+        return False, {"error": str(exc)}
+
+
 def post_investigate(ticket_id: str) -> tuple[bool, str]:
     try:
         resp = httpx.post(
@@ -228,6 +282,14 @@ else:
                 )
                 st.markdown(f"**Summary:** {item.get('ticket_summary', '—')}")
                 st.markdown(f"**Root Cause:** {item.get('root_cause', '—')}")
+                # ── Remote target badge ──
+                target_label = item.get("target_label", "local")
+                target_online = item.get("target_online", False)
+                if target_label and target_label != "local":
+                    dot = "🟢" if target_online else "🔴"
+                    st.markdown(f"**Target device:** {dot} `{target_label}`")
+                else:
+                    st.markdown("**Target:** `local server`")
                 plan = item.get("plan", "").strip()
                 if plan:
                     with st.expander("Action Plan / Steps"):
@@ -318,6 +380,98 @@ if tickets:
     st.dataframe(df[cols], use_container_width=True, hide_index=True)
 else:
     st.info("No tickets found.")
+
+st.divider()
+
+# ── Devices panel (IT/admin only) ──
+st.subheader("Endpoint Devices")
+st.caption("Devices enrolled in MeshCentral and linked to SynapseITSM users.")
+
+dev_col1, dev_col2 = st.columns([3, 1])
+with dev_col1:
+    dev_search = st.text_input("Search by email / name / user ID", key="dev_search", label_visibility="collapsed", placeholder="Search by email / name / user ID")
+with dev_col2:
+    if st.button("Sync from MeshCentral", use_container_width=True):
+        with st.spinner("Syncing devices from MeshCentral…"):
+            ok, result = sync_devices()
+        if ok:
+            st.success(f"Synced: {result.get('synced',0)} linked · {result.get('unmatched',0)} unmatched · {result.get('errors',0)} errors")
+        else:
+            st.error(f"Sync failed: {result.get('error','unknown error')}")
+
+devices_list = fetch_user_devices(dev_search)
+if devices_list:
+    for dev in devices_list:
+        online = dev.get("agent_online", False)
+        nodeid = dev.get("meshcentral_nodeid") or "—"
+        hostname = dev.get("device_hostname") or "—"
+        ip = dev.get("last_known_ip") or "—"
+        os_p = dev.get("os_platform") or "—"
+        last_seen = dev.get("device_last_seen") or "—"
+        dot = "🟢" if online else ("🔴" if nodeid != "—" else "⚫")
+        with st.container(border=True):
+            dl, dr = st.columns([5, 1])
+            with dl:
+                st.markdown(
+                    f"{dot} **{dev['full_name']}** &nbsp; `{dev['email']}` &nbsp; `{dev['role']}`"
+                )
+                if nodeid != "—":
+                    st.caption(
+                        f"nodeid: `{nodeid}` &nbsp;|&nbsp; hostname: `{hostname}` "
+                        f"&nbsp;|&nbsp; IP: `{ip}` &nbsp;|&nbsp; OS: `{os_p}` "
+                        f"&nbsp;|&nbsp; last seen: `{last_seen}`"
+                    )
+                else:
+                    st.caption("No device enrolled yet.")
+            with dr:
+                if st.button("Edit", key=f"edit_dev_{dev['id']}", use_container_width=True):
+                    st.session_state[f"editing_dev_{dev['id']}"] = True
+
+        # Inline edit form (shown when Edit clicked)
+        if st.session_state.get(f"editing_dev_{dev['id']}", False):
+            with st.form(key=f"form_dev_{dev['id']}"):
+                st.markdown(f"**Update device for {dev['full_name']}**")
+                new_nodeid   = st.text_input("MeshCentral Node ID", value=dev.get("meshcentral_nodeid") or "")
+                new_hostname = st.text_input("Hostname", value=dev.get("device_hostname") or "")
+                new_ip       = st.text_input("Last Known IP", value=dev.get("last_known_ip") or "")
+                new_os       = st.selectbox("OS Platform", ["windows", "linux", "darwin"],
+                                            index=["windows", "linux", "darwin"].index(dev.get("os_platform") or "windows"))
+                new_online   = st.checkbox("Agent Online", value=dev.get("agent_online", False))
+                col_save, col_unlink, col_cancel = st.columns(3)
+                save   = col_save.form_submit_button("Save", type="primary", use_container_width=True)
+                unlink = col_unlink.form_submit_button("Unlink Device", use_container_width=True)
+                cancel = col_cancel.form_submit_button("Cancel", use_container_width=True)
+
+            if save:
+                payload = {
+                    "meshcentral_nodeid": new_nodeid or None,
+                    "device_hostname": new_hostname or None,
+                    "last_known_ip": new_ip or None,
+                    "os_platform": new_os,
+                    "agent_online": new_online,
+                }
+                ok, err = update_user_device(dev["id"], payload)
+                if ok:
+                    st.success("Device attributes saved.")
+                    st.session_state[f"editing_dev_{dev['id']}"] = False
+                    time.sleep(0.5)
+                    st.rerun()
+                else:
+                    st.error(f"Save failed: {err}")
+            elif unlink:
+                ok, err = unlink_user_device(dev["id"])
+                if ok:
+                    st.warning("Device unlinked.")
+                    st.session_state[f"editing_dev_{dev['id']}"] = False
+                    time.sleep(0.5)
+                    st.rerun()
+                else:
+                    st.error(f"Unlink failed: {err}")
+            elif cancel:
+                st.session_state[f"editing_dev_{dev['id']}"] = False
+                st.rerun()
+else:
+    st.info("No users found. Use the search box above or enroll devices in MeshCentral and click Sync.")
 
 st.divider()
 

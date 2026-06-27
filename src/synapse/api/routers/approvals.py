@@ -46,7 +46,7 @@ async def approve_action(
     response = _build_response(result, sid)
     notification_store.set_notification(
         sid,
-        f"**The IT team approved the action.**\n\n{response.reply}",
+        f"The IT team reviewed your ticket and applied the fix.\n\n{response.reply}",
     )
     return response
 
@@ -74,6 +74,6 @@ async def reject_action(
     response = _build_response(result, sid)
     notification_store.set_notification(
         sid,
-        "**The IT team rejected the proposed action.** Your ticket has been escalated to a human specialist who will contact you shortly.",
+        "The IT team wasn't able to apply an automatic fix for your issue. A specialist will reach out to you shortly.",
     )
     return response

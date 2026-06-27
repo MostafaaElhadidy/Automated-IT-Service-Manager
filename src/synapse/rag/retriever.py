@@ -15,6 +15,7 @@ COLLECTION_NAME = "incident_kb"
 def _get_chroma():
     try:
         import chromadb
+        from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction  # noqa: F401
         return chromadb
     except ImportError:
         return None
@@ -32,10 +33,15 @@ def _get_collection():
     client = _get_client()
     if client is None:
         return None
-    return client.get_or_create_collection(
-        name=COLLECTION_NAME,
-        metadata={"hnsw:space": "cosine"},
-    )
+    try:
+        from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
+        ef = SentenceTransformerEmbeddingFunction(model_name="all-MiniLM-L6-v2")
+    except ImportError:
+        ef = None  # fall back to ChromaDB default
+    kwargs = {"name": COLLECTION_NAME, "metadata": {"hnsw:space": "cosine"}}
+    if ef is not None:
+        kwargs["embedding_function"] = ef
+    return client.get_or_create_collection(**kwargs)
 
 
 async def retrieve_similar(

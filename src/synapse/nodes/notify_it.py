@@ -30,8 +30,8 @@ async def notify_it_node(state: AgentState) -> dict:
             Message(
                 role="assistant",
                 content=(
-                    f"Ticket **{ticket_id}** has been escalated to the IT team with a full incident report. "
-                    "They will investigate and contact you within the SLA window."
+                    f"I've handed this off to the IT team with a full report (ticket **{ticket_id}**). "
+                    "They'll reach out to you soon."
                 ),
             )
         ],
