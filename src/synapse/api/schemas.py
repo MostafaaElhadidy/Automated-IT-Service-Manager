@@ -105,3 +105,52 @@ class HealthOut(BaseModel):
     status: str
     db: str = "unknown"
     chroma: str = "unknown"
+
+
+# ── Device management ─────────────────────────────────────────────────────────
+
+class UserDeviceInfo(BaseModel):
+    id: str
+    email: str
+    full_name: str
+    role: str
+    meshcentral_nodeid: str | None = None
+    device_hostname: str | None = None
+    last_known_ip: str | None = None
+    os_platform: str | None = None
+    agent_online: bool = False
+    device_last_seen: datetime | None = None
+
+
+class DeviceUpdate(BaseModel):
+    """All fields optional — only supplied non-null fields are written to DB."""
+    meshcentral_nodeid: str | None = None
+    device_hostname: str | None = None
+    last_known_ip: str | None = None
+    os_platform: str | None = None
+    agent_online: bool | None = None
+
+
+class DeviceSyncResult(BaseModel):
+    synced: int
+    unmatched: int
+    errors: int
+
+
+class AgentResultPayload(BaseModel):
+    job_id: str
+    nodeid: str
+    runbook_id: str
+    step: str       # "step_N" | "complete" | "verify" | "timeout"
+    ok: bool
+    output: str
+    ts: str | None = None  # ISO timestamp from the remote script
+
+
+# ── Approval card update — show target device ─────────────────────────────────
+
+class PendingApprovalOutV2(PendingApprovalOut):
+    """Extends PendingApprovalOut with remote-execution target info."""
+    target_label: str = "local"   # e.g. "sara-laptop (windows)" or "local server"
+    target_nodeid: str | None = None
+    target_online: bool = False

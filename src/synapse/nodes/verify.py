@@ -20,14 +20,22 @@ async def verify_node(state: AgentState) -> dict:
 
     try:
         from synapse.mcp_servers.runbook_client import execute_and_verify
+        from synapse.exec_target import resolve_target
+
+        # Resolve where this runbook should execute: user's PC or local server
+        target = await resolve_target(ticket_id, state.user_id)
+        if target.kind == "remote":
+            logger.info(
+                "Remote execution target resolved: %s → %s",
+                ticket_id, target.label,
+            )
 
         result = await execute_and_verify(
             runbook_id=action.runbook_id,
             parameters=action.parameters,
+            target=target,
         )
         recovered: bool = result.get("recovered", False)
-        before = result.get("before", {})
-        after = result.get("after", {})
 
         # Log action in DB
         if ticket_id:
@@ -44,28 +52,10 @@ async def verify_node(state: AgentState) -> dict:
             update={"status": "executed" if recovered else "failed"}
         )
 
-        steps = result.get("steps", [])
-        step_log = "\n".join(
-            f"  - [{'OK' if s.get('ok') else 'FAIL'}] **{s['step']}**: {s['output']}"
-            for s in steps
-        ) if steps else "  (no step details)"
-
         if recovered:
-            msg = (
-                f"**Runbook `{action.runbook_id}` executed successfully.**\n\n"
-                f"**Execution steps:**\n{step_log}\n\n"
-                f"**Before:** {before}\n"
-                f"**After:** {after}\n\n"
-                f"Service has recovered."
-            )
+            msg = "Your issue has been fixed! Everything looks good now. Let me know if anything else comes up."
         else:
-            msg = (
-                f"**Runbook `{action.runbook_id}` executed — recovery not yet confirmed.**\n\n"
-                f"**Execution steps:**\n{step_log}\n\n"
-                f"**Before:** {before}\n"
-                f"**After:** {after}\n\n"
-                f"Generating failure report..."
-            )
+            msg = "I tried the fix but couldn't fully resolve the issue. I'll escalate this to the IT team."
 
         return {
             "recovered": recovered,
@@ -91,7 +81,7 @@ async def verify_node(state: AgentState) -> dict:
             "conversation": [
                 Message(
                     role="assistant",
-                    content=f"Runbook execution error: {exc}. Generating failure report.",
+                    content="Something went wrong while applying the fix. Putting together a report for the IT team.",
                 )
             ],
         }

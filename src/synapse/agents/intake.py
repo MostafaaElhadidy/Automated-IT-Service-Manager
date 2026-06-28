@@ -12,7 +12,7 @@ from synapse.db import repositories as repo
 from synapse.llm import call_llm
 from synapse.state import AgentState, Message, Ticket, ReqType, Priority
 from synapse.tools.priority import compute_priority, urgency_from_text
-from synapse.tools.sla import sla_label
+
 
 logger = logging.getLogger(__name__)
 
@@ -112,13 +112,7 @@ async def intake_node(state: AgentState) -> dict:
         summary=parsed.summary,
     )
 
-    reply = (
-        f"Ticket **{db_ticket.id}** created.\n"
-        f"- **Category:** {parsed.category}\n"
-        f"- **Priority:** {priority} (SLA: {sla_label(priority)})\n"
-        f"- **Affected CI:** {affected_ci or 'unknown'}\n"
-        f"- **Summary:** {parsed.summary}"
-    )
+    reply = f"Got it — I'm looking into this now. (Ticket **{db_ticket.id}**)"
 
     return {
         "tickets": {db_ticket.id: state_ticket},

@@ -1,6 +1,6 @@
 from __future__ import annotations
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
 from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -38,6 +38,79 @@ async def get_user_by_email(session: AsyncSession, email: str) -> User | None:
 async def get_user(session: AsyncSession, user_id: str) -> User | None:
     result = await session.execute(select(User).where(User.id == user_id))
     return result.scalar_one_or_none()
+
+
+async def list_users(session: AsyncSession) -> list[User]:
+    result = await session.execute(select(User).order_by(User.full_name))
+    return list(result.scalars().all())
+
+
+async def get_user_by_nodeid(session: AsyncSession, nodeid: str) -> User | None:
+    result = await session.execute(select(User).where(User.meshcentral_nodeid == nodeid))
+    return result.scalar_one_or_none()
+
+
+async def search_users(session: AsyncSession, query: str) -> list[User]:
+    """Search users by email, full_name, or id (case-insensitive substring match)."""
+    q = f"%{query.strip()}%"
+    result = await session.execute(
+        select(User).where(
+            (User.email.ilike(q))
+            | (User.full_name.ilike(q))
+            | (User.id.ilike(q))
+        ).order_by(User.full_name)
+    )
+    return list(result.scalars().all())
+
+
+async def update_user_device(
+    session: AsyncSession,
+    user_id: str,
+    *,
+    nodeid: str | None = None,
+    hostname: str | None = None,
+    ip: str | None = None,
+    os_platform: str | None = None,
+    online: bool | None = None,
+    last_seen: datetime | None = None,
+) -> User | None:
+    """Update MeshCentral device connection attributes on a user row."""
+    result = await session.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if user is None:
+        return None
+    if nodeid is not None:
+        user.meshcentral_nodeid = nodeid
+    if hostname is not None:
+        user.device_hostname = hostname
+    if ip is not None:
+        user.last_known_ip = ip
+    if os_platform is not None:
+        user.os_platform = os_platform
+    if online is not None:
+        user.agent_online = online
+    if last_seen is not None:
+        user.device_last_seen = last_seen
+    await session.commit()
+    await session.refresh(user)
+    return user
+
+
+async def unlink_user_device(session: AsyncSession, user_id: str) -> User | None:
+    """Clear all device connection attributes for a user (unlink from MeshCentral)."""
+    result = await session.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if user is None:
+        return None
+    user.meshcentral_nodeid = None
+    user.device_hostname = None
+    user.last_known_ip = None
+    user.os_platform = None
+    user.agent_online = False
+    user.device_last_seen = None
+    await session.commit()
+    await session.refresh(user)
+    return user
 
 
 async def create_ticket(

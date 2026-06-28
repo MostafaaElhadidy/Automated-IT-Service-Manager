@@ -61,8 +61,8 @@ async def report_node(state: AgentState) -> dict:
             Message(
                 role="assistant",
                 content=(
-                    f"Automated remediation failed. A detailed incident report has been generated "
-                    f"for ticket **{ticket_id}**."
+                    f"I wasn't able to fix this automatically. I've put together a full report "
+                    f"for the IT team (ticket **{ticket_id}**) and they'll take it from here."
                 ),
             )
         ],

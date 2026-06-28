@@ -34,6 +34,20 @@ Return ONLY valid JSON. Do not add commentary.
 """
 
 
+_USER_FIX_DESCRIPTIONS: dict[str, str] = {
+    "diagnose_internet":          "check and restore your internet connection",
+    "flush_dns":                  "clear the network name cache to fix connection issues",
+    "reconnect_vpn":              "reconnect your VPN",
+    "reset_network_adapter":      "reset your network adapter to fix speed or connectivity issues",
+    "reset_network_stack":        "reset your network settings to fix a deeper connectivity problem",
+    "restart_db_connection_pool": "restart the database connection",
+    "restart_web_service":        "restart the web service",
+    "restart_app_service":        "restart the application",
+    "clear_cache":                "clear the application cache",
+    "scale_workers":              "add more processing capacity to handle the load",
+}
+
+
 class RemediationOutput(BaseModel):
     runbook_id: str = Field(description="The id of the runbook to run")
     parameters: dict = Field(default_factory=dict, description="Parameters for the runbook")
@@ -138,13 +152,8 @@ async def remediation_node(state: AgentState) -> dict:
         plan=plan_text,
     )
 
-    reply = (
-        f"**Proposed Remediation**\n\n"
-        f"Runbook: `{runbook_id}`\n"
-        f"Parameters: {parameters}\n\n"
-        f"**Plan:**\n{plan_text}\n\n"
-        f"_Awaiting human approval before execution._"
-    )
+    user_fix = _USER_FIX_DESCRIPTIONS.get(runbook_id, plan_text or f"apply a fix for this issue")
+    reply = f"Suggested fix: {user_fix}.\n\nWaiting for IT approval before making any changes."
 
     return {
         "pending_action": action,

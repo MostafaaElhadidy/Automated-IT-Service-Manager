@@ -54,6 +54,44 @@ class Settings(BaseSettings):
     alert_email_to: str = ""             # IT on-call address
     dashboard_url: str = "http://localhost:8501"
 
+    # ── MeshCentral remote remediation ───────────────────────────────────────
+    # Set MESHCENTRAL_ENABLED=true once MeshCentral is running and configured.
+    # The meshctrl CLI (Node.js) must be on PATH: npm install -g meshcentral
+    meshcentral_enabled: bool = False
+    meshcentral_url: str = "wss://localhost:8443/control.ashx"
+    meshcentral_user: str = "synapse-bot"
+    meshcentral_password: str = ""          # password OR login key — one is required
+    meshcentral_loginkey: str = ""          # preferred: node meshcentral --logintokenkey
+    meshcentral_device_group: str = "SynapseITSM-Endpoints"
+    meshcentral_verify_tls: bool = False    # True in production with real certs
+    # How to invoke meshctrl — can be "meshctrl", "node /path/to/meshctrl.js", etc.
+    meshcentral_meshctrl: str = "meshctrl"
+
+    @property
+    def meshcentral_meshctrl_cmd(self) -> list[str]:
+        """Split meshcentral_meshctrl into tokens (supports 'node /path/to/meshctrl.js')."""
+        import shlex
+        return shlex.split(self.meshcentral_meshctrl)
+
+    @property
+    def meshcentral_base_url(self) -> str:
+        """Base URL for meshctrl — strips /control.ashx because meshctrl appends it itself."""
+        url = self.meshcentral_url
+        for suffix in ("/control.ashx", "/"):
+            if url.endswith(suffix):
+                url = url[: -len(suffix)]
+        return url
+
+    @property
+    def meshcentral_auth_args(self) -> list[str]:
+        """Return auth flags for the meshctrl CLI."""
+        if self.meshcentral_loginkey:
+            return ["--loginkey", self.meshcentral_loginkey]
+        return [
+            "--loginuser", self.meshcentral_user,
+            "--loginpass", self.meshcentral_password,
+        ]
+
     # ── Tracing ───────────────────────────────────────────────────────────────
     langfuse_public_key: str = ""
     langfuse_secret_key: str = ""

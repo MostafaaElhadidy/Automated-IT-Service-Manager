@@ -33,14 +33,14 @@ async def hitl_node(state: AgentState) -> dict:
         return {
             "pending_action": updated_action,
             "conversation": [
-                Message(role="assistant", content="Action approved. Executing runbook...")
+                Message(role="assistant", content="Approved — applying the fix now...")
             ],
         }
     else:
         return {
             "escalated_to_human": True,
             "conversation": [
-                Message(role="assistant", content="Action rejected. Escalating to IT team.")
+                Message(role="assistant", content="Got it. I'll hand this off to the IT team instead.")
             ],
         }
 
@@ -68,8 +68,7 @@ async def escalate_human_node(state: AgentState) -> dict:
             Message(
                 role="assistant",
                 content=(
-                    "This issue has been escalated to the IT team. "
-                    "A human specialist will contact you shortly."
+                    "I've flagged this for the IT team. A specialist will reach out to you shortly."
                 ),
             )
         ],

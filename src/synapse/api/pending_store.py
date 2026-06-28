@@ -20,6 +20,10 @@ def register(
     ticket_id: str,
     ticket_summary: str,
     ticket_priority: str,
+    *,
+    target_label: str = "local",
+    target_nodeid: str | None = None,
+    target_online: bool = False,
 ) -> None:
     _pending[session_id] = {
         "session_id": session_id,
@@ -32,6 +36,10 @@ def register(
         "ticket_summary": ticket_summary,
         "ticket_priority": ticket_priority,
         "created_at": datetime.now(timezone.utc).isoformat(),
+        # Remote execution target (shown in dashboard approval card)
+        "target_label": target_label,
+        "target_nodeid": target_nodeid,
+        "target_online": target_online,
     }
 
 

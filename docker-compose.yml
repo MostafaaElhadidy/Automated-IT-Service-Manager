@@ -5,7 +5,7 @@ services:
       POSTGRES_USER: synapse
       POSTGRES_PASSWORD: synapse
       POSTGRES_DB: synapse
-    ports: ["5432:5432"]
+    ports: ["5433:5432"]
     volumes: ["pgdata:/var/lib/postgresql/data"]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U synapse"]
@@ -13,5 +13,26 @@ services:
       timeout: 5s
       retries: 10
 
+  # ── MeshCentral — remote device management ───────────────────────────────
+  # After first boot: create the synapse-bot admin account in the MeshCentral
+  # web UI (https://localhost:8443) then set MESHCENTRAL_USER + MESHCENTRAL_PASSWORD
+  # in .env. Optionally generate a login key: node meshcentral --logintokenkey
+  meshcentral:
+    image: ghcr.io/ylianst/meshcentral:latest
+    ports:
+      - "8443:8443"   # HTTPS + WSS on the same port the browser uses
+      - "8444:8444"   # HTTP redirect
+    volumes:
+      - meshcentral-data:/opt/meshcentral/meshcentral-data
+      - meshcentral-files:/opt/meshcentral/meshcentral-files
+      # Config file: tells MeshCentral it lives on port 8443 (fixes "Invalid origin")
+      - ./meshcentral-config.json:/opt/meshcentral/meshcentral-data/config.json:ro
+    environment:
+      NODE_TLS_REJECT_UNAUTHORIZED: "0"
+    restart: unless-stopped
+    profiles: ["meshcentral"]   # opt-in: docker compose --profile meshcentral up -d
+
 volumes:
   pgdata:
+  meshcentral-data:
+  meshcentral-files:

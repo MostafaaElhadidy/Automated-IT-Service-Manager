@@ -33,13 +33,10 @@ async def deflect_node(state: AgentState) -> dict:
     )
 
     reply = (
-        f"I found a similar past incident in our knowledge base. Here is the **suggested fix** "
-        f"— note that nothing has been executed yet, this is a manual recommendation:\n\n"
+        f"I've seen something similar before — here's what fixed it:\n\n"
         f"{answer}\n\n"
-        f"**Please try the steps above yourself.** "
-        f"Ticket **{db_ticket.id}** has been logged.\n\n"
-        f"If this doesn't resolve your issue, reply with something like "
-        f"\"that didn't help\" and I'll run a full diagnostic and execute the fix automatically."
+        f"Give those steps a try. I've logged this as ticket **{db_ticket.id}** in case we need to follow up.\n\n"
+        f"If it doesn't help, just say so (like \"that didn't work\") and I'll dig deeper and apply the fix automatically."
     )
 
     return {

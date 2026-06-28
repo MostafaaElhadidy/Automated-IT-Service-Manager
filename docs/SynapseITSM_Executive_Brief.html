@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SynapseITSM — Executive Brief</title>
+<style>
+  @page {
+    size: A4;
+    margin: 18mm 16mm 16mm 16mm;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    color: #1f2933;
+    font-size: 10.5pt;
+    line-height: 1.55;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* ── Cover band ─────────────────────────────────────────── */
+  .hero {
+    background: linear-gradient(120deg, #0b3d6b 0%, #1565c0 55%, #1e88e5 100%);
+    color: #fff;
+    padding: 30px 34px 26px 34px;
+    border-radius: 14px;
+    margin-bottom: 22px;
+  }
+  .hero .brand {
+    font-size: 12pt;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    opacity: .85;
+    margin-bottom: 6px;
+  }
+  .hero h1 {
+    font-size: 27pt;
+    margin: 0 0 8px 0;
+    font-weight: 700;
+    letter-spacing: .3px;
+  }
+  .hero .tag {
+    font-size: 11pt;
+    opacity: .95;
+    max-width: 92%;
+  }
+  .hero .meta {
+    margin-top: 16px;
+    font-size: 8.5pt;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    opacity: .8;
+  }
+
+  h2 {
+    color: #0b3d6b;
+    font-size: 14pt;
+    margin: 22px 0 10px 0;
+    padding-bottom: 6px;
+    border-bottom: 2px solid #e3eaf2;
+  }
+  h2 .ic { color: #1e88e5; margin-right: 7px; }
+
+  p { margin: 0 0 9px 0; }
+
+  /* ── Tables ─────────────────────────────────────────────── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 6px 0 12px 0;
+    font-size: 10pt;
+  }
+  th {
+    background: #0b3d6b;
+    color: #fff;
+    text-align: left;
+    padding: 8px 12px;
+    font-weight: 600;
+  }
+  td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #e3eaf2;
+    vertical-align: top;
+  }
+  tr:nth-child(even) td { background: #f5f8fc; }
+
+  /* ── Numbered flow ──────────────────────────────────────── */
+  ol.flow { counter-reset: step; list-style: none; padding: 0; margin: 6px 0; }
+  ol.flow li {
+    position: relative;
+    padding: 6px 0 6px 40px;
+    margin-bottom: 4px;
+  }
+  ol.flow li::before {
+    counter-increment: step;
+    content: counter(step);
+    position: absolute;
+    left: 0; top: 5px;
+    width: 26px; height: 26px;
+    background: #1e88e5;
+    color: #fff;
+    border-radius: 50%;
+    text-align: center;
+    line-height: 26px;
+    font-weight: 700;
+    font-size: 10pt;
+  }
+
+  /* ── Differentiator cards ───────────────────────────────── */
+  .cards { margin: 6px 0; }
+  .card {
+    border-left: 4px solid #1e88e5;
+    background: #f5f8fc;
+    padding: 9px 14px;
+    margin-bottom: 8px;
+    border-radius: 0 8px 8px 0;
+  }
+  .card b { color: #0b3d6b; }
+
+  /* ── Value chips ────────────────────────────────────────── */
+  ul.value { list-style: none; padding: 0; margin: 6px 0; }
+  ul.value li {
+    padding: 5px 0 5px 24px;
+    position: relative;
+  }
+  ul.value li::before {
+    content: "✔";
+    position: absolute;
+    left: 0; top: 5px;
+    color: #2e9e5b;
+    font-weight: 700;
+  }
+
+  .oneliner {
+    margin-top: 16px;
+    background: #0b3d6b;
+    color: #fff;
+    padding: 16px 22px;
+    border-radius: 12px;
+    font-size: 11pt;
+    font-style: italic;
+    text-align: center;
+  }
+  .oneliner b { color: #8ec9ff; font-style: normal; }
+
+  .footer {
+    margin-top: 18px;
+    text-align: center;
+    color: #8a99a8;
+    font-size: 8pt;
+    letter-spacing: .5px;
+  }
+  .avoid-break { page-break-inside: avoid; }
+</style>
+</head>
+<body>
+
+  <div class="hero">
+    <div class="brand">Executive Brief</div>
+    <h1>SynapseITSM</h1>
+    <div class="tag">An AI-powered IT support platform that diagnoses and resolves technical issues automatically — while keeping humans in control of every fix.</div>
+    <div class="meta">Prepared for Business Stakeholders &nbsp;•&nbsp; Confidential</div>
+  </div>
+
+  <h2><span class="ic">▣</span>What It Is</h2>
+  <p>SynapseITSM lets employees describe IT problems in plain language and have them automatically triaged, diagnosed, and fixed — with a mandatory human approval checkpoint before any change is applied. It replaces slow, manual help-desk ticket handling with an intelligent system that investigates root cause and remediates issues end-to-end, including directly on a user's PC or laptop.</p>
+
+  <h2><span class="ic">▣</span>The Business Problem It Solves</h2>
+  <table class="avoid-break">
+    <tr><th style="width:50%">Today's Pain</th><th>SynapseITSM's Answer</th></tr>
+    <tr><td>Help-desk tickets sit in queues for hours</td><td>Common issues resolved in <b>seconds</b>, automatically</td></tr>
+    <tr><td>Senior IT staff burn time on repetitive problems</td><td>Routine fixes automated; staff focus on real escalations</td></tr>
+    <tr><td>Outages are detected by users, not the system</td><td>Built-in monitoring <b>catches failures before users report them</b></td></tr>
+    <tr><td>Knowledge walks out the door when staff leave</td><td>The system <b>learns from every resolved ticket</b> and improves over time</td></tr>
+  </table>
+
+  <h2><span class="ic">▣</span>How It Works</h2>
+  <ol class="flow avoid-break">
+    <li><b>An employee reports a problem</b> through a simple chat window (e.g. "the sales dashboard is down").</li>
+    <li><b>The AI instantly checks</b> whether it has seen this issue before and can answer immediately.</li>
+    <li><b>If it's a real incident,</b> the system reads live system-health data and maps service dependencies to pinpoint the true cause.</li>
+    <li><b>It proposes a specific fix</b> from a library of approved repair procedures ("runbooks").</li>
+    <li><b>An IT operator reviews and approves</b> the fix with one click — nothing runs without human sign-off.</li>
+    <li><b>The fix is applied, verified, and the ticket closed</b> automatically. Failed fixes are escalated with an email alert.</li>
+  </ol>
+
+  <h2><span class="ic">▣</span>Key Differentiators</h2>
+  <div class="cards">
+    <div class="card"><b>Human-in-the-Loop safety</b> — Every corrective action requires explicit operator approval. The AI recommends; people decide. Critical for governance and risk control.</div>
+    <div class="card"><b>Remote remediation</b> — Approved fixes can be applied directly to an employee's PC or laptop, even off-site, with no technical effort from the user.</div>
+    <div class="card"><b>Proactive monitoring</b> — A background agent watches infrastructure 24/7 and opens high-priority tickets automatically the moment something breaks.</div>
+    <div class="card"><b>Self-improving knowledge base</b> — Each resolved case feeds back into the system, continuously raising the automatic resolution rate.</div>
+    <div class="card"><b>Full audit trail</b> — Every proposal, approval, and action is logged for compliance and reporting.</div>
+  </div>
+
+  <h2><span class="ic">▣</span>Business Value</h2>
+  <ul class="value avoid-break">
+    <li><b>Faster resolution</b> — routine incidents handled in seconds instead of hours.</li>
+    <li><b>Lower support cost</b> — fewer tickets reach human agents; staff are deployed where they matter.</li>
+    <li><b>Reduced downtime</b> — early detection and automated fixes shorten outages.</li>
+    <li><b>Consistency &amp; compliance</b> — every action follows an approved procedure and is fully logged.</li>
+    <li><b>Scalability</b> — absorbs growing ticket volume without proportional headcount growth.</li>
+  </ul>
+
+  <h2><span class="ic">▣</span>Maturity &amp; Technology</h2>
+  <p>The platform is built on a modern, enterprise-grade foundation: multi-agent AI orchestration, secure role-based access, a containerized database, and a dedicated operations dashboard for the IT team. It supports flexible AI model providers, keeping it cost-effective and adaptable as the business scales.</p>
+
+  <div class="oneliner">
+    SynapseITSM turns IT support from a reactive, manual cost center into a <b>proactive, self-improving, mostly-automated service</b> — while keeping humans firmly in control of every fix.
+  </div>
+
+  <div class="footer">SynapseITSM &nbsp;•&nbsp; Executive Brief &nbsp;•&nbsp; Confidential — For Internal Distribution</div>
+
+</body>
+</html>

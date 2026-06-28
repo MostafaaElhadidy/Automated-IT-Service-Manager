@@ -145,11 +145,10 @@ async def on_chat_start():
     name = app_user.metadata.get("full_name", "there") if app_user and app_user.metadata else "there"
     await cl.Message(
         content=(
-            f"👋 **Welcome to SynapseITSM, {name}**\n\n"
-            "Describe your IT issue in plain language and I'll triage, diagnose, "
-            "and propose a fix for you.\n\n"
-            f"_Session: `{session_id}`_"
-        )
+            f"👋 **Hi {name}, welcome to IT Support!**\n\n"
+            "Tell me what's going wrong and I'll look into it for you."
+        ),
+        actions=[cl.Action(name="track_tickets", payload={}, label="Track My Tickets")],
     ).send()
     task = asyncio.create_task(_poll_notifications(session_id))
     cl.user_session.set("_poll_task", task)
@@ -160,6 +159,40 @@ async def on_chat_end():
     task = cl.user_session.get("_poll_task")
     if task:
         task.cancel()
+
+
+_STATUS_LABELS: dict[str, str] = {
+    "new": "Open",
+    "open": "Open",
+    "resolved": "Resolved",
+    "closed": "Closed",
+    "escalated": "With IT team",
+    "deflected": "Resolved",
+}
+
+
+@cl.action_callback("track_tickets")
+async def on_track_tickets(_action: cl.Action):
+    """Fetch and display the user's tickets in plain language."""
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(f"{API_BASE}/tickets", headers=_auth_headers())
+            resp.raise_for_status()
+            tickets = resp.json()
+    except Exception as exc:
+        await cl.Message(content=f"Couldn't fetch your tickets right now: {exc}").send()
+        return
+
+    if not tickets:
+        await cl.Message(content="You have no tickets yet.").send()
+        return
+
+    lines = [
+        f"- **{t['id']}** — {t.get('summary', 'No description')} | "
+        f"Status: **{_STATUS_LABELS.get(t.get('status', ''), t.get('status', ''))}**"
+        for t in tickets
+    ]
+    await cl.Message(content="**Your tickets:**\n\n" + "\n".join(lines)).send()
 
 
 @cl.on_message
@@ -192,32 +225,13 @@ async def on_message(message: cl.Message):
     reply = data.get("reply", "No response from backend.")
     tickets = data.get("tickets", [])
     pending = data.get("pending_action")
-    escalated = data.get("escalated", False)
-
-    # Build response message
-    parts = [reply]
-
-    if tickets:
-        ticket_lines = []
-        for t in tickets:
-            ticket_lines.append(
-                f"  - **{t['id']}** | {t['category']} | {t['priority']} | {t['status']}"
-            )
-        parts.append("\n**Tickets:**\n" + "\n".join(ticket_lines))
-
-    if escalated:
-        parts.append("\n⚠️ _Issue escalated to IT team._")
 
     await thinking.remove()
-    await cl.Message(content="\n\n".join(parts)).send()
 
-    # If HITL pending — notify user; approval happens in the dashboard
-    if pending:
-        await cl.Message(
-            content=(
-                f"**Approval Required**\n\n"
-                f"Runbook `{pending['runbook_id']}` is waiting for IT approval.\n\n"
-                f"An IT member must **approve or reject** this action from the "
-                f"**Operations Dashboard** before execution continues."
-            ),
-        ).send()
+    # Show the reply; attach a ticket-tracker button whenever a ticket is involved
+    actions = (
+        [cl.Action(name="track_tickets", payload={}, label="Track My Tickets")]
+        if tickets or pending
+        else []
+    )
+    await cl.Message(content=reply, actions=actions).send()

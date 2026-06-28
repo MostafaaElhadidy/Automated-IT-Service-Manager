@@ -18,6 +18,20 @@ class User(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
+    # ── Remote-remediation connection attributes (MeshCentral) ────────────────
+    # How SynapseITSM reaches THIS user's PC/laptop to apply a fix remotely.
+    # Populated by meshcentral_client.sync_devices() after the MeshAgent enrolls.
+    meshcentral_nodeid: Mapped[str | None] = mapped_column(
+        String(128), nullable=True, index=True
+    )  # MeshCentral node id of the user's primary device (target for runcommand)
+    device_hostname: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    last_known_ip: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    os_platform: Mapped[str | None] = mapped_column(String(32), nullable=True)  # windows|darwin|linux
+    agent_online: Mapped[bool] = mapped_column(default=False, nullable=False)  # MeshAgent reachable
+    device_last_seen: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
 
 class ConfigurationItem(Base):
     __tablename__ = "configuration_items"
